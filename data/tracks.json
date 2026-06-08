@@ -1,0 +1,4 @@
+[
+  { "id": "a-major-scale", "name": "A Major Scale", "type": "reference", "file": null },
+  { "id": "demo-song", "name": "Violin Scale (demo)", "type": "audio", "file": "/demo/demo-song.mp3" }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "0",
+    "createdDate": "",
+    "description": "Welcome! This is a sample practice plan — edit it, or create your own from the Plans tab.",
+    "items": [
+      {
+        "trackId": "demo-song",
+        "tasks": [{ "type": "playWithTrack", "count": 2 }],
+        "dice": false
+      },
+      {
+        "trackId": "a-major-scale",
+        "tasks": [{ "type": "playWithoutTrack", "count": 1 }],
+        "dice": true
+      }
+    ],
+    "checklist": ["mouse-holes", "baby-bear", "first-finger", "hugger-fingers", "puppy-space"]
+  }
+]

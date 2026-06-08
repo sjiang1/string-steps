@@ -1,0 +1,25 @@
+[
+  {
+    "id": "individual-class",
+    "label": "Individual class",
+    "emoji": "👦👨‍🏫",
+    "bgClass": "bg-blue-100",
+    "textClass": "text-blue-700",
+    "isClassDay": true
+  },
+  {
+    "id": "group-class",
+    "label": "Group class",
+    "emoji": "👦👧👦👧👨‍🏫",
+    "bgClass": "bg-blue-100",
+    "textClass": "text-blue-700",
+    "isClassDay": true
+  },
+  {
+    "id": "sick",
+    "label": "Sick",
+    "emoji": "🤒",
+    "bgClass": "bg-zinc-200",
+    "textClass": "text-zinc-700"
+  }
+]

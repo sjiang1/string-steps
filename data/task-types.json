@@ -1,0 +1,5 @@
+[
+  { "type": "sing", "play": false },
+  { "type": "playWithTrack", "play": true },
+  { "type": "playWithoutTrack", "play": true }
+]

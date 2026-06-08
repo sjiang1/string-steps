@@ -1,0 +1,8 @@
+[
+  { "face": 1, "emoji": "🍕", "label": "pepperoni pizza" },
+  { "face": 2, "emoji": "🍦", "label": "ice cream cone" },
+  { "face": 3, "emoji": "🍍", "label": "pineapple, pineapple" },
+  { "face": 4, "emoji": "🐴", "label": "run pony, run pony" },
+  { "face": 5, "emoji": "🍕🍕", "label": "pepperoni, pepperoni" },
+  { "face": 6, "emoji": "🌷", "label": "May Song rhythm" }
+]

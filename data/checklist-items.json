@@ -1,0 +1,37 @@
+[
+  {
+    "id": "mouse-holes",
+    "description": "Three mouse holes on the bow hand",
+    "image": "/api/img/mouse-holes",
+    "emoji": "🐭",
+    "category": "bow-hand"
+  },
+  {
+    "id": "baby-bear",
+    "description": "Baby bear gesture on the violin hand",
+    "image": "/api/img/baby-bear",
+    "emoji": "🐻",
+    "category": "violin-hand"
+  },
+  {
+    "id": "first-finger",
+    "description": "First finger down at the edge of the tape",
+    "image": "/api/img/first-finger",
+    "emoji": "☝️",
+    "category": "violin-hand"
+  },
+  {
+    "id": "hugger-fingers",
+    "description": "Two hugger fingers on the bow",
+    "image": "/api/img/hugger-fingers",
+    "emoji": "🤗",
+    "category": "bow-hand"
+  },
+  {
+    "id": "puppy-space",
+    "description": "Space for a puppy in the bow hold",
+    "image": "/api/img/puppy-space",
+    "emoji": "🐶",
+    "category": "bow-hand"
+  }
+]
