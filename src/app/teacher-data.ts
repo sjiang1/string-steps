@@ -155,3 +155,47 @@ export function aggregateTeacherReport(input: AggregateInput): TrackReport[] {
     return { trackId, name, progress, notes };
   });
 }
+
+export type ComposeInput = {
+  report: TrackReport[];
+  selectedKeys: Set<string>;
+  studentName: string;
+  teacherName: string;
+};
+
+export function noteKey(trackId: string, date: string): string {
+  return `${trackId}|${date}`;
+}
+
+export function composeTeacherEmail(input: ComposeInput): string {
+  const { report, selectedKeys, studentName, teacherName } = input;
+  const sections: string[] = [`Hi ${teacherName},`];
+
+  const blocks: string[] = [];
+  for (const track of report) {
+    const selectedNotes = track.notes.filter((n) =>
+      selectedKeys.has(noteKey(track.trackId, n.date)),
+    );
+    if (selectedNotes.length === 0) continue;
+
+    const lines: string[] = [track.name];
+    if (track.progress.length > 0) {
+      lines.push(
+        track.progress.map((p) => `${p.label} ${p.done}/${p.total}`).join(" · "),
+      );
+    }
+    for (const n of selectedNotes) {
+      lines.push(`${formatShort(n.date)} — "${n.note}"`);
+    }
+    blocks.push(lines.join("\n"));
+  }
+
+  if (blocks.length === 0) {
+    sections.push("(Check notes below to add them to this email.)");
+  } else {
+    sections.push(...blocks);
+  }
+
+  sections.push(`Thanks!\n— ${studentName}`);
+  return sections.join("\n\n");
+}
