@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   composeTeacherEmail,
   formatShort,
@@ -34,6 +34,13 @@ export default function TeacherEmailBuilder({
     () => composeTeacherEmail({ report, selectedKeys, studentName, teacherName }),
     [report, selectedKeys, studentName, teacherName],
   );
+
+  // Flash the "Copied!" confirmation, then return to idle so it stays transient.
+  useEffect(() => {
+    if (copied !== "ok") return;
+    const timer = setTimeout(() => setCopied("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   async function copy() {
     try {

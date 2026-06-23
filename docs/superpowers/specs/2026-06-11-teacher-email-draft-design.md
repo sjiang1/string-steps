@@ -109,9 +109,11 @@ TeacherPage (server)
   valid, if sparse, email.
 - **Selected track with no progress data** → the note(s) render without a
   progress line (the block is still valid).
-- **Clipboard write fails** (older browser / permissions) → fall back to
-  selecting the textarea text and showing "Copy failed — select and copy
-  manually."
+- **Clipboard write fails** (older browser / permissions) → show "Copy failed
+  — select and copy manually." The read-only textarea stays selectable so the
+  user can highlight and copy by hand. **Design choice:** we deliberately do
+  *not* auto-select the textarea — the user does the selecting. This keeps the
+  fallback simple (no textarea ref) and leaves the user in control of the copy.
 
 ## Testing
 
