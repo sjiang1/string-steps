@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { addDays, datesInRange, computeTeacherWindow } from "./teacher-data";
+import {
+  addDays,
+  datesInRange,
+  computeTeacherWindow,
+  noteKey,
+  composeTeacherEmail,
+} from "./teacher-data";
 
 describe("addDays", () => {
   it("adds and subtracts days across month boundaries", () => {
@@ -242,5 +248,119 @@ describe("aggregateTeacherReport", () => {
       { date: "2026-04-14", note: "finger slipping on C string" },
       { date: "2026-04-15", note: "much better" },
     ]);
+  });
+});
+
+describe("noteKey", () => {
+  it("joins trackId and date with a pipe", () => {
+    expect(noteKey("twinkle", "2026-06-09")).toBe("twinkle|2026-06-09");
+  });
+});
+
+describe("composeTeacherEmail", () => {
+  const report = [
+    {
+      trackId: "twinkle",
+      name: "Twinkle Twinkle",
+      progress: [
+        { type: "sing", label: "Sing", done: 3, total: 5 },
+        { type: "playWithTrack", label: "Play with track", done: 2, total: 4 },
+      ],
+      notes: [
+        { date: "2026-06-09", note: "bowing felt shaky" },
+        { date: "2026-06-10", note: "much better today" },
+      ],
+    },
+    {
+      trackId: "minuet",
+      name: "Minuet",
+      progress: [{ type: "sing", label: "Sing", done: 1, total: 2 }],
+      notes: [{ date: "2026-06-09", note: "forgot the repeat" }],
+    },
+  ];
+  const names = { studentName: "Xiami", teacherName: "Mr. Graham" };
+
+  it("includes only tracks with at least one selected note, in report order", () => {
+    const selectedKeys = new Set([
+      "twinkle|2026-06-09",
+      "twinkle|2026-06-10",
+      "minuet|2026-06-09",
+    ]);
+    expect(composeTeacherEmail({ report, selectedKeys, ...names })).toBe(
+      [
+        "Hi Mr. Graham,",
+        "",
+        "Twinkle Twinkle",
+        "Sing 3/5 · Play with track 2/4",
+        'Jun 9 — "bowing felt shaky"',
+        'Jun 10 — "much better today"',
+        "",
+        "Minuet",
+        "Sing 1/2",
+        'Jun 9 — "forgot the repeat"',
+        "",
+        "Thanks!",
+        "— Xiami",
+      ].join("\n"),
+    );
+  });
+
+  it("omits a track whose notes are all unselected", () => {
+    const selectedKeys = new Set(["minuet|2026-06-09"]);
+    const out = composeTeacherEmail({ report, selectedKeys, ...names });
+    expect(out).not.toContain("Twinkle Twinkle");
+    expect(out).toContain("Minuet");
+  });
+
+  it("includes only the selected notes within an included track", () => {
+    const selectedKeys = new Set(["twinkle|2026-06-10"]);
+    const out = composeTeacherEmail({ report, selectedKeys, ...names });
+    expect(out).toContain('Jun 10 — "much better today"');
+    expect(out).not.toContain("bowing felt shaky");
+  });
+
+  it("renders greeting + hint + sign-off when nothing is selected", () => {
+    const out = composeTeacherEmail({
+      report,
+      selectedKeys: new Set(),
+      ...names,
+    });
+    expect(out).toBe(
+      [
+        "Hi Mr. Graham,",
+        "",
+        "(Check notes below to add them to this email.)",
+        "",
+        "Thanks!",
+        "— Xiami",
+      ].join("\n"),
+    );
+  });
+
+  it("omits the progress line for a selected track with no progress data", () => {
+    const noProgress = [
+      {
+        trackId: "etude",
+        name: "Etude",
+        progress: [],
+        notes: [{ date: "2026-06-09", note: "new piece" }],
+      },
+    ];
+    const out = composeTeacherEmail({
+      report: noProgress,
+      selectedKeys: new Set(["etude|2026-06-09"]),
+      ...names,
+    });
+    expect(out).toBe(
+      [
+        "Hi Mr. Graham,",
+        "",
+        "Etude",
+        'Jun 9 — "new piece"',
+        "",
+        "Thanks!",
+        "— Xiami",
+      ].join("\n"),
+    );
   });
 });
