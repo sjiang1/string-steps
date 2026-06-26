@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import type { Plan, Track } from "../plans";
+import { primaryTrackId, type Plan, type Track } from "../plans";
 import { savePlan } from "../actions";
 import { validatePlan } from "./plan-validation";
 import { nextAvailableTrackId } from "../track-id";
@@ -77,7 +77,9 @@ export default function PlanEditor({
     if (picker?.mode === "replace") {
       update({ items: replaceItemTrack(draft.items, picker.index, trackId) });
     } else {
-      update({ items: [...draft.items, { trackId, tasks: [], dice: false }] });
+      update({
+        items: [...draft.items, { trackChoices: [trackId], tasks: [], dice: false }],
+      });
     }
     setPicker(null);
   }
@@ -122,8 +124,8 @@ export default function PlanEditor({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIdx = draft.items.findIndex((i) => i.trackId === active.id);
-    const newIdx = draft.items.findIndex((i) => i.trackId === over.id);
+    const oldIdx = draft.items.findIndex((i) => primaryTrackId(i) === active.id);
+    const newIdx = draft.items.findIndex((i) => primaryTrackId(i) === over.id);
     if (oldIdx === -1 || newIdx === -1) return;
     const next = [...draft.items];
     const [moved] = next.splice(oldIdx, 1);
@@ -165,16 +167,16 @@ export default function PlanEditor({
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={draft.items.map((i) => i.trackId)}
+            items={draft.items.map((i) => primaryTrackId(i))}
             strategy={verticalListSortingStrategy}
           >
             {draft.items.map((item, idx) => (
               <PracticeItemRow
-                key={item.trackId}
+                key={primaryTrackId(item)}
                 item={item}
-                track={trackList.find((t) => t.id === item.trackId)}
+                track={trackList.find((t) => t.id === primaryTrackId(item))}
                 disabled={disabled}
-                invalidTaskIndices={invalidByTrack.get(item.trackId) ?? new Set()}
+                invalidTaskIndices={invalidByTrack.get(primaryTrackId(item)) ?? new Set()}
                 onChange={(next) =>
                   update({
                     items: draft.items.map((it, i) => (i === idx ? next : it)),
@@ -235,7 +237,7 @@ export default function PlanEditor({
       {picker && (
         <TrackPicker
           tracks={trackList}
-          inPlan={draft.items.map((i) => i.trackId)}
+          inPlan={draft.items.map((i) => primaryTrackId(i))}
           heading={picker.mode === "replace" ? "Change track" : "Add to plan"}
           onClose={() => setPicker(null)}
           onPick={(t) => applyTrackToPlan(t.id)}

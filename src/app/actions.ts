@@ -117,8 +117,25 @@ function nextPlanId(plans: Plan[]): string {
 
 // --- Public API ---
 
+// Upgrade legacy practice items that still carry a single `trackId` (the shape
+// stored in Redis before #4) to the `trackChoices` pool shape. Keeps prod data
+// working without a manual Redis migration.
+function normalizePlans(plans: Plan[]): Plan[] {
+  return plans.map((plan) => ({
+    ...plan,
+    items: plan.items.map((item) => {
+      if (Array.isArray(item.trackChoices)) return item;
+      const legacy = item as unknown as { trackId?: string };
+      const { trackId, ...rest } = legacy;
+      return { ...(rest as object), trackChoices: trackId ? [trackId] : [] } as typeof item;
+    }),
+  }));
+}
+
 export async function getPlans(): Promise<Plan[]> {
-  return readJson<Plan[]>(PLANS_KEY, PLANS_PATH, plansSeed as unknown as Plan[]);
+  return normalizePlans(
+    await readJson<Plan[]>(PLANS_KEY, PLANS_PATH, plansSeed as unknown as Plan[]),
+  );
 }
 
 function ensureTodayInSchedule(

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TEST_PRIMARY as PRIMARY, TEST_LINKED as LINKED } from "./test-support/people";
+import { primaryTrackId } from "./plans";
 
 async function loadPlans() {
   const mod = await import("./plans");
@@ -10,12 +11,24 @@ beforeEach(() => {
   vi.resetModules();
 });
 
+describe("primaryTrackId", () => {
+  it("returns the only track for a single-element pool", () => {
+    expect(primaryTrackId({ trackChoices: ["twinkle"], tasks: [], dice: false })).toBe("twinkle");
+  });
+
+  it("returns the first track of a multi-track pool (pre-dice active track)", () => {
+    expect(
+      primaryTrackId({ trackChoices: ["twinkle", "minuet"], tasks: [], dice: false }),
+    ).toBe("twinkle");
+  });
+});
+
 describe("getPlanForDate — happy path", () => {
   it("returns the plan for a scheduled date", async () => {
     vi.doMock("./actions", () => ({
       getSchedule: async () => ({ "2026-04-07": "0" }),
       getPlans: async () => [
-        { id: "0", createdDate: "2026-04-07", items: [{ trackId: "x", tasks: [], dice: false }], checklist: [] },
+        { id: "0", createdDate: "2026-04-07", items: [{ trackChoices: ["x"], tasks: [], dice: false }], checklist: [] },
       ],
     }));
     const { getPlanForDate } = await loadPlans();

@@ -3,7 +3,7 @@
 import DiceRoller from "./DiceRoller";
 import TaskList, { TaskTypeDef } from "./TaskList";
 import TrackNote from "./TrackNote";
-import type { PracticeItem, Track } from "./plans";
+import { primaryTrackId, type PracticeItem, type Track } from "./plans";
 import type { Student } from "./students";
 
 interface Props {
@@ -19,11 +19,12 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
   return (
     <ul className="space-y-4">
       {items.map((item) => {
-        const track = tracks.find((t) => t.id === item.trackId);
+        const trackId = primaryTrackId(item);
+        const track = tracks.find((t) => t.id === trackId);
         return (
-          <li key={item.trackId} className="rounded-lg border bg-white p-4">
+          <li key={trackId} className="rounded-lg border bg-white p-4">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold">{track?.name ?? item.trackId}</span>
+              <span className="font-semibold">{track?.name ?? trackId}</span>
               {track?.type === "video" && (
                 <span className="text-xs bg-zinc-100 text-zinc-500 rounded px-1.5 py-0.5">
                   video
@@ -36,7 +37,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
               </p>
             )}
             <TaskList
-              trackId={item.trackId}
+              trackId={trackId}
               tasks={item.tasks}
               taskTypes={taskTypes}
               initialDone={doneTasks}
@@ -50,8 +51,8 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
             )}
             {activeStudent.kind === "primary" && (
               <TrackNote
-                trackId={item.trackId}
-                initialNote={notesByTrack[item.trackId] ?? ""}
+                trackId={trackId}
+                initialNote={notesByTrack[trackId] ?? ""}
               />
             )}
           </li>

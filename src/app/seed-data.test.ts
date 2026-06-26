@@ -15,9 +15,11 @@ const scheduleMap = schedule as Record<string, string>;
 
 describe("committed seed data is internally consistent", () => {
   it("every plan item references a track that exists", () => {
-    for (const plan of plans as { id: string; items: { trackId: string }[] }[]) {
+    for (const plan of plans as { id: string; items: { trackChoices: string[] }[] }[]) {
       for (const item of plan.items) {
-        expect(trackIds.has(item.trackId), `plan ${plan.id} item trackId ${item.trackId}`).toBe(true);
+        for (const trackId of item.trackChoices) {
+          expect(trackIds.has(trackId), `plan ${plan.id} item trackId ${trackId}`).toBe(true);
+        }
       }
     }
   });

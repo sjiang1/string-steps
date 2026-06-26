@@ -15,8 +15,8 @@ export const TEST_PLANS: Plan[] = [
     id: "1",
     createdDate: "2026-04-07",
     items: [
-      { trackId: "demo-a", tasks: [{ type: "playWithTrack", count: 2 }], dice: false },
-      { trackId: "demo-b", tasks: [{ type: "playWithoutTrack", count: 1 }], dice: false },
+      { trackChoices: ["demo-a"], tasks: [{ type: "playWithTrack", count: 2 }], dice: false },
+      { trackChoices: ["demo-b"], tasks: [{ type: "playWithoutTrack", count: 1 }], dice: false },
     ],
     checklist: [],
   },
