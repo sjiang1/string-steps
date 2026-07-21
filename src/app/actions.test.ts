@@ -362,6 +362,42 @@ describe("addTrack + getTrackBlobUrl", () => {
   });
 });
 
+describe("getPlans — legacy trackId normalization", () => {
+  it("upgrades pre-#4 items that still carry a single trackId to trackChoices", async () => {
+    setupScheduleData({});
+    // Shape stored before #4: a bare trackId, no trackChoices.
+    setupPlansData([
+      {
+        id: "0",
+        createdDate: "2026-04-10",
+        items: [{ trackId: "twinkle", tasks: [{ type: "sing", count: 1 }], dice: false }],
+        checklist: [],
+      },
+    ]);
+    const { getPlans } = await loadActions();
+    const item = (await getPlans())[0].items[0];
+    expect(item.trackChoices).toEqual(["twinkle"]);
+    expect("trackId" in item).toBe(false);
+    // Other fields are preserved through the upgrade.
+    expect(item.tasks).toEqual([{ type: "sing", count: 1 }]);
+    expect(item.dice).toBe(false);
+  });
+
+  it("leaves already-migrated trackChoices items untouched", async () => {
+    setupScheduleData({});
+    setupPlansData([
+      {
+        id: "0",
+        createdDate: "2026-04-10",
+        items: [{ trackChoices: ["a", "b"], tasks: [], dice: true }],
+        checklist: [],
+      },
+    ]);
+    const { getPlans } = await loadActions();
+    expect((await getPlans())[0].items[0].trackChoices).toEqual(["a", "b"]);
+  });
+});
+
 describe("savePlan — inline reference tracks", () => {
   it("persists new reference tracks to the catalog alongside the plan", async () => {
     setupScheduleData({});
@@ -379,7 +415,7 @@ describe("savePlan — inline reference tracks", () => {
         id: "0",
         createdDate: "2026-04-10",
         description: "with custom practice",
-        items: [{ trackId: "a-major-scale", tasks: [], dice: false }],
+        items: [{ trackChoices: ["a-major-scale"], tasks: [], dice: false }],
         checklist: [],
       },
       [{ id: "a-major-scale", name: "A Major Scale", type: "reference", file: null }],
@@ -391,7 +427,7 @@ describe("savePlan — inline reference tracks", () => {
       type: "reference",
       file: null,
     });
-    expect((await getPlans())[0].items[0].trackId).toBe("a-major-scale");
+    expect((await getPlans())[0].items[0].trackChoices).toEqual(["a-major-scale"]);
     // Media-less => no blob entry written.
     expect(JSON.parse(readFileSync(blobsFile, "utf-8"))).toEqual({
       scale: "https://blob.example/scale.mp3",

@@ -5,12 +5,12 @@
     "description": "Welcome! This is a sample practice plan — edit it, or create your own from the Plans tab.",
     "items": [
       {
-        "trackId": "demo-song",
+        "trackChoices": ["demo-song"],
         "tasks": [{ "type": "playWithTrack", "count": 2 }],
         "dice": false
       },
       {
-        "trackId": "a-major-scale",
+        "trackChoices": ["a-major-scale"],
         "tasks": [{ "type": "playWithoutTrack", "count": 1 }],
         "dice": true
       }

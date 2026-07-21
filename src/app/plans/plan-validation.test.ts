@@ -9,7 +9,7 @@ function plan(items: Plan["items"]): Plan {
 describe("validatePlan", () => {
   it("returns no errors for a plan with only regular tasks", () => {
     const p = plan([
-      { trackId: "scale", tasks: [{ type: "playWithoutTrack", count: 1 }], dice: false },
+      { trackChoices: ["scale"], tasks: [{ type: "playWithoutTrack", count: 1 }], dice: false },
     ]);
     expect(validatePlan(p)).toEqual([]);
   });
@@ -17,7 +17,7 @@ describe("validatePlan", () => {
   it("returns no errors for a plan with a valid focus task", () => {
     const p = plan([
       {
-        trackId: "may-song",
+        trackChoices: ["may-song"],
         tasks: [
           { type: "playWithoutTrack", count: 1 },
           { type: "playWithoutTrack", count: 6, focus: "bars 5-8" },
@@ -31,7 +31,7 @@ describe("validatePlan", () => {
   it("flags an empty focus string", () => {
     const p = plan([
       {
-        trackId: "x",
+        trackChoices: ["x"],
         tasks: [{ type: "sing", count: 1, focus: "" }],
         dice: false,
       },
@@ -44,7 +44,7 @@ describe("validatePlan", () => {
   it("flags a whitespace-only focus string", () => {
     const p = plan([
       {
-        trackId: "x",
+        trackChoices: ["x"],
         tasks: [{ type: "sing", count: 1, focus: "   " }],
         dice: false,
       },
@@ -57,7 +57,7 @@ describe("validatePlan", () => {
   it("flags duplicate (type, focus) pairs on the same track — both offending indices", () => {
     const p = plan([
       {
-        trackId: "x",
+        trackChoices: ["x"],
         tasks: [
           { type: "playWithoutTrack", count: 6, focus: "bars 5-8" },
           { type: "playWithoutTrack", count: 4, focus: "bars 5-8" },
@@ -74,7 +74,7 @@ describe("validatePlan", () => {
   it("flags duplicate regular tasks of the same type on the same track", () => {
     const p = plan([
       {
-        trackId: "x",
+        trackChoices: ["x"],
         tasks: [
           { type: "sing", count: 1 },
           { type: "sing", count: 2 },
@@ -91,7 +91,7 @@ describe("validatePlan", () => {
   it("does not flag regular and focus tasks with the same type on the same track", () => {
     const p = plan([
       {
-        trackId: "x",
+        trackChoices: ["x"],
         tasks: [
           { type: "playWithoutTrack", count: 1 },
           { type: "playWithoutTrack", count: 6, focus: "bars 5-8" },
@@ -104,8 +104,8 @@ describe("validatePlan", () => {
 
   it("scopes duplicate detection per track — same (type, focus) across different tracks is fine", () => {
     const p = plan([
-      { trackId: "a", tasks: [{ type: "sing", count: 1 }], dice: false },
-      { trackId: "b", tasks: [{ type: "sing", count: 1 }], dice: false },
+      { trackChoices: ["a"], tasks: [{ type: "sing", count: 1 }], dice: false },
+      { trackChoices: ["b"], tasks: [{ type: "sing", count: 1 }], dice: false },
     ]);
     expect(validatePlan(p)).toEqual([]);
   });

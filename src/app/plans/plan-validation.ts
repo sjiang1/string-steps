@@ -1,4 +1,4 @@
-import type { Plan } from "../plans";
+import { primaryTrackId, type Plan } from "../plans";
 
 export type PlanValidationError = {
   trackId: string;
@@ -9,9 +9,10 @@ export type PlanValidationError = {
 export function validatePlan(plan: Plan): PlanValidationError[] {
   const errors: PlanValidationError[] = [];
   for (const item of plan.items) {
+    const trackId = primaryTrackId(item);
     item.tasks.forEach((task, taskIndex) => {
       if (task.focus !== undefined && task.focus.trim() === "") {
-        errors.push({ trackId: item.trackId, taskIndex, reason: "empty-focus" });
+        errors.push({ trackId, taskIndex, reason: "empty-focus" });
       }
     });
 
@@ -25,7 +26,7 @@ export function validatePlan(plan: Plan): PlanValidationError[] {
     for (const indices of seen.values()) {
       if (indices.length > 1) {
         for (const taskIndex of indices) {
-          errors.push({ trackId: item.trackId, taskIndex, reason: "duplicate" });
+          errors.push({ trackId, taskIndex, reason: "duplicate" });
         }
       }
     }

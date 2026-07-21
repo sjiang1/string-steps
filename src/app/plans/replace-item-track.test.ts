@@ -3,15 +3,15 @@ import type { PracticeItem } from "../plans";
 import { replaceItemTrack } from "./replace-item-track";
 
 const items: PracticeItem[] = [
-  { trackId: "a", tasks: [{ type: "sing", count: 2 }], dice: true, teacherNote: "keep me" },
-  { trackId: "b", tasks: [], dice: false },
+  { trackChoices: ["a"], tasks: [{ type: "sing", count: 2 }], dice: true, teacherNote: "keep me" },
+  { trackChoices: ["b"], tasks: [], dice: false },
 ];
 
 describe("replaceItemTrack", () => {
-  it("swaps the trackId at the index, preserving tasks/dice/teacherNote", () => {
+  it("swaps the trackChoices at the index, preserving tasks/dice/teacherNote", () => {
     const next = replaceItemTrack(items, 0, "c");
     expect(next[0]).toEqual({
-      trackId: "c",
+      trackChoices: ["c"],
       tasks: [{ type: "sing", count: 2 }],
       dice: true,
       teacherNote: "keep me",
@@ -25,7 +25,7 @@ describe("replaceItemTrack", () => {
 
   it("does not mutate the input", () => {
     const next = replaceItemTrack(items, 0, "c");
-    expect(items[0].trackId).toBe("a");
+    expect(items[0].trackChoices).toEqual(["a"]);
     expect(next).not.toBe(items);
   });
 });

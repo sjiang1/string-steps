@@ -124,7 +124,7 @@ describe("aggregateTeacherReport", () => {
           checklist: [],
           items: [
             {
-              trackId: "twinkle",
+              trackChoices: ["twinkle"],
               dice: false,
               tasks: [
                 { type: "sing", count: 1 },
@@ -162,9 +162,9 @@ describe("aggregateTeacherReport", () => {
       schedule: { "2026-04-15": "1", "2026-04-16": "2" },
       plans: [
         { id: "1", createdDate: "2026-04-15", checklist: [], items: [
-          { trackId: "twinkle", dice: false, tasks: [{ type: "sing", count: 3 }] } ] },
+          { trackChoices: ["twinkle"], dice: false, tasks: [{ type: "sing", count: 3 }] } ] },
         { id: "2", createdDate: "2026-04-16", checklist: [], items: [
-          { trackId: "twinkle", dice: false, tasks: [{ type: "sing", count: 3 }] } ] },
+          { trackChoices: ["twinkle"], dice: false, tasks: [{ type: "sing", count: 3 }] } ] },
       ],
       tracks,
       doneByDate: { "2026-04-15": ["twinkle-sing-0", "twinkle-sing-1"] },
@@ -183,7 +183,7 @@ describe("aggregateTeacherReport", () => {
       schedule: { "2026-04-15": "1" },
       plans: [
         { id: "1", createdDate: "2026-04-15", checklist: [], items: [
-          { trackId: "scale", dice: false, tasks: [{ type: "playWithoutTrack", count: 2 }] } ] },
+          { trackChoices: ["scale"], dice: false, tasks: [{ type: "playWithoutTrack", count: 2 }] } ] },
       ],
       tracks,
       doneByDate: {},
@@ -209,7 +209,7 @@ describe("aggregateTeacherReport", () => {
       schedule: { "2026-04-15": "1" },
       plans: [
         { id: "1", createdDate: "2026-04-15", checklist: [], items: [
-          { trackId: "twinkle", dice: false, tasks: [
+          { trackChoices: ["twinkle"], dice: false, tasks: [
             { type: "playWithoutTrack", count: 2 },
             { type: "playWithoutTrack", count: 6, focus: "bars 5-8" },
           ] } ] },
@@ -233,7 +233,7 @@ describe("aggregateTeacherReport", () => {
       schedule: { "2026-04-14": "1", "2026-04-15": "1", "2026-04-16": "1" },
       plans: [
         { id: "1", createdDate: "2026-04-14", checklist: [], items: [
-          { trackId: "twinkle", dice: false, tasks: [{ type: "sing", count: 1 }] } ] },
+          { trackChoices: ["twinkle"], dice: false, tasks: [{ type: "sing", count: 1 }] } ] },
       ],
       tracks,
       doneByDate: {},

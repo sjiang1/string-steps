@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { PracticeItem, PlanTask, Track } from "../plans";
+import { primaryTrackId, type PracticeItem, type PlanTask, type Track } from "../plans";
 import TaskChip from "./TaskChip";
 import TeacherNoteField from "./TeacherNoteField";
 import { sortTasks } from "./task-order";
@@ -37,7 +37,7 @@ export default function PracticeItemRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.trackId, disabled });
+  } = useSortable({ id: primaryTrackId(item), disabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -58,7 +58,7 @@ export default function PracticeItemRow({
           ⠿
         </button>
         <div className="font-semibold flex-1 flex items-center gap-2">
-          <span>{track?.name ?? item.trackId}</span>
+          <span>{track?.name ?? primaryTrackId(item)}</span>
           {track && (
             <span className="text-xs bg-zinc-100 text-zinc-500 rounded px-1.5 py-0.5 font-normal">
               {track.type}

@@ -1,5 +1,5 @@
 import { isClassDay } from "./day-types";
-import type { Plan, PlanSchedule, Track } from "./plans";
+import { primaryTrackId, type Plan, type PlanSchedule, type Track } from "./plans";
 import { doneCountForTask } from "./task-keys";
 
 export type TeacherWindow = {
@@ -116,11 +116,12 @@ export function aggregateTeacherReport(input: AggregateInput): TrackReport[] {
     if (plan === undefined) continue; // class/sick ids never match a plan id
 
     for (const item of plan.items) {
-      if (!targets.has(item.trackId)) {
-        targets.set(item.trackId, new Map());
-        order.push(item.trackId);
+      const trackId = primaryTrackId(item);
+      if (!targets.has(trackId)) {
+        targets.set(trackId, new Map());
+        order.push(trackId);
       }
-      const byType = targets.get(item.trackId)!;
+      const byType = targets.get(trackId)!;
       for (const task of item.tasks) {
         if (task.focus !== undefined) continue; // focus tasks excluded
         byType.set(task.type, (byType.get(task.type) ?? 0) + task.count);

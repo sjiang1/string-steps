@@ -30,7 +30,7 @@ export default function NewPlanButton({
             createdDate: today,
             description: sourcePlan.description,
             items: sourcePlan.items.map((it) => ({
-              trackId: it.trackId,
+              trackChoices: [...it.trackChoices],
               tasks: it.tasks.map((t) => ({ ...t })),
               dice: it.dice,
               teacherNote: it.teacherNote,

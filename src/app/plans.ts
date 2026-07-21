@@ -8,11 +8,18 @@ export type PlanTask = {
 };
 
 export type PracticeItem = {
-  trackId: string;
+  trackChoices: string[];
   tasks: PlanTask[];
   dice: boolean;
   teacherNote?: string;
 };
+
+// The single track a practice item currently resolves to. Today an item always
+// has exactly one active track (the first/only one in its pool). When the dice
+// feature lands (#5), this is the seam that returns the rolled track instead.
+export function primaryTrackId(item: PracticeItem): string {
+  return item.trackChoices[0];
+}
 
 export type Plan = {
   id: string;
