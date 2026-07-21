@@ -3,7 +3,13 @@
     "allow": [
       "Bash(npm test *)",
       "Bash(npm run *)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(git branch *)",
+      "Bash(gh pr *)",
+      "Bash(git fetch *)",
+      "Bash(git revert *)",
+      "Bash(git stash *)",
+      "Bash(git commit -m 'chore: allow git pull in .claude/settings.json permissions *)"
     ]
   },
   "enabledPlugins": {
