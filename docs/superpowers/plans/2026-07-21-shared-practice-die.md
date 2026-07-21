@@ -2,14 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task (inline execution). Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** One shared die on the practice page, summoned by any practice item that uses it. The die is a **plain numeric d6** — no per-face meaning is stored. Each die-enabled item keeps an **ordered list of choices** (tracks from its pool and/or rhythms); the rolled number indexes the list (face 1 = first choice). Replaces the per-item `DiceRoller` and the overloaded `dice: boolean` flag.
+**Goal:** One shared die on the practice page, summoned by any practice item that uses it. The die is a **plain numeric d6** — no per-face meaning is stored. Each die-enabled item keeps an **ordered list of choices** (tracks from its pool and/or rhythms); the rolled number indexes the list (face 1 = first choice). Replaces the per-item `DiceRoller`. `dice: boolean` **stays** as the item's die-enabled status — and is the future hook for auto-summoning the die when the page loads.
 
 **Decisions (from issue #5 discussion, 2026-07-21):**
 - **Plain d6, list-indexed:** the die always shows 1–6 pips. An item's choice list has 1–6 entries; rolling a number beyond the list length means "roll again!" (real-die feel, no config needed).
 - **Free re-roll:** tap to roll any number of times; the last result persists per item (localStorage), matching today's DiceRoller feel.
-- Legacy `dice: true` is normalized at read time (same pattern as #4's `normalizePlans`) — no manual Redis migration.
+- **`dice: boolean` is kept**, not retired: it stays the per-item die-enabled status (and later enables auto-popping the die module for `dice: true` items — out of scope here, noted as the follow-up hook).
+- Legacy `dice: true` items (no `dieChoices` yet) are normalized at read time (same pattern as #4's `normalizePlans`) — no manual Redis migration.
 
-**Architecture:** `PracticeItem.dieChoices?: DieChoice[]` replaces `dice: boolean` — an ordered list, position = face number. Rhythms in `data/dice-rhythms.json` gain stable `id`s so choices can reference them declaratively. A single `PracticeDie` client component lives at the practice-page level; `PracticeTasksList` tracks which item summoned it and each item's last-rolled face. The `primaryTrackId(item)` seam gains a companion `rolledTrackId(item, face)` used by the practice page to render the rolled track (audio, tap-keys, notes all follow the rolled `trackId` automatically). `PlanEditor` gets the multi-track pool UI (deferred from #4) plus a simple ordered-list choice editor.
+**Architecture:** `PracticeItem` keeps `dice: boolean` as the enable flag and gains `dieChoices?: DieChoice[]` as its configuration — an ordered list, position = face number. Rhythms in `data/dice-rhythms.json` gain stable `id`s so choices can reference them declaratively. A single `PracticeDie` client component lives at the practice-page level; `PracticeTasksList` tracks which item summoned it and each item's last-rolled face. The `primaryTrackId(item)` seam gains a companion `rolledTrackId(item, face)` used by the practice page to render the rolled track (audio, tap-keys, notes all follow the rolled `trackId` automatically). `PlanEditor` gets the multi-track pool UI (deferred from #4) plus a simple ordered-list choice editor.
 
 Issue [#5](https://github.com/sjiang1/string-steps/issues/5) · Depends on #4/#6 (merged)
 
@@ -25,26 +26,27 @@ export type DieChoice =
 export type PracticeItem = {
   trackChoices: string[];
   tasks: PlanTask[];
-  dieChoices?: DieChoice[]; // absent = no die; present = 1–6 entries, face N = index N-1
+  dice: boolean;            // die-enabled status (future: auto-summon the die when true)
+  dieChoices?: DieChoice[]; // required 1–6 entries when dice is true; face N = index N-1
   teacherNote?: string;
 };
 ```
 
 Rolling face N with `N > dieChoices.length` is a miss — the die says "roll again!". No per-face mapping is stored; the list order IS the mapping.
 
-Legacy normalization (read-time, in `actions.ts`): `dice: true` → `dieChoices` = the 6 rhythms in face order; `dice: false`/absent → no `dieChoices`. Already-migrated items pass through untouched.
+Legacy normalization (read-time, in `actions.ts`): `dice: true` without `dieChoices` → `dieChoices` = the 6 rhythms in face order (today's rhythm die, unchanged behavior); `dice: false` → any stray `dieChoices` stripped. Already-migrated items pass through untouched.
 
 ## File Structure
 
 - **`data/dice-rhythms.json`** (modify) — add `id` per entry (`"pepperoni"`, `"ice-cream"`, `"pineapple"`, `"pony"`, `"double-pepperoni"`, `"may-song"`).
-- **`src/app/plans.ts`** (modify) — `DieChoice` type; `dieChoices` on `PracticeItem` (drop `dice`); `rolledTrackId(item, face)` helper beside `primaryTrackId`.
+- **`src/app/plans.ts`** (modify) — `DieChoice` type; `dieChoices` added to `PracticeItem` (`dice` kept as the enable flag); `rolledTrackId(item, face)` helper beside `primaryTrackId`.
 - **`src/app/actions.ts`** (modify) — extend `normalizePlans` with the `dice` → `dieChoices` upgrade.
 - **`src/app/plans/plan-validation.ts`** (modify) — die rules: 1–6 entries when present, track choices ∈ `trackChoices`, rhythm ids exist, pool has no duplicate tracks.
 - **`src/app/PracticeDie.tsx`** (create) — the one shared die: overlay summoned by an item, reuses the pip/color art from `DiceRoller`, roll animation, "roll again!" state for misses, per-item last-face persistence (`dieFace:<itemKey>` in localStorage, itemKey = `trackChoices[0]`), reports the settled face to the page.
 - **`src/app/DiceRoller.tsx`** (delete) — retired; art constants move to `PracticeDie`.
-- **`src/app/PracticeTasksList.tsx`** (modify) — per-item 🎲 button for `dieChoices` items; holds `activeDieItem` + rolled-face state; a rolled track choice renders via `rolledTrackId` (falling back to `primaryTrackId` before first roll), a rolled rhythm shows the emoji+label chip.
-- **`src/app/plans/PracticeItemRow.tsx`** (modify) — pool UI (track chips with remove ×, "+ add track" via picker) replacing the single Change button; die editor (Use-die toggle → ordered, numbered choice list built from pool tracks + rhythms) replacing the Dice checkbox.
-- **`src/app/plans/PlanEditor.tsx`** (modify) — picker gains an add-to-pool mode; new-item literal drops `dice`.
+- **`src/app/PracticeTasksList.tsx`** (modify) — per-item 🎲 button for `dice: true` items; holds `activeDieItem` + rolled-face state; a rolled track choice renders via `rolledTrackId` (falling back to `primaryTrackId` before first roll), a rolled rhythm shows the emoji+label chip.
+- **`src/app/plans/PracticeItemRow.tsx`** (modify) — pool UI (track chips with remove ×, "+ add track" via picker) replacing the single Change button; die editor (the existing Dice checkbox becomes the `dice` toggle, now revealing the ordered, numbered choice list built from pool tracks + rhythms).
+- **`src/app/plans/PlanEditor.tsx`** (modify) — picker gains an add-to-pool mode.
 - **`src/app/plans/replace-item-track.ts`** (modify) — keep `dieChoices` consistent when a pooled track is replaced/removed.
 - **`data/plans.json`, `src/app/test-support/seed.ts`** (modify) — rewrite to `dieChoices` shape.
 - **`README.md`** (modify) — update the two dice mentions; link this plan.
@@ -59,13 +61,13 @@ Legacy normalization (read-time, in `actions.ts`): `dice: true` → `dieChoices`
 
 ## Task 2: `DieChoice` model + legacy normalization (TDD)
 
-- [ ] `plans.ts`: add `DieChoice`, swap `dice: boolean` → `dieChoices?: DieChoice[]`; add `rolledTrackId(item, face): string | null` (null for rhythm choices and face misses) beside `primaryTrackId`.
-- [ ] `actions.ts` `normalizePlans`: `dice: true` → the 6 rhythms as choices; `dice` key stripped either way. Tests: legacy-true upgrades, legacy-false drops cleanly, migrated item untouched.
-- [ ] Rewrite `data/plans.json` + `test-support/seed.ts`; fix compile errors across the suite mechanically (`dice: false` → no `dieChoices`).
+- [ ] `plans.ts`: add `DieChoice` and `dieChoices?: DieChoice[]` (keeping `dice: boolean`); add `rolledTrackId(item, face): string | null` (null for rhythm choices and face misses) beside `primaryTrackId`.
+- [ ] `actions.ts` `normalizePlans`: `dice: true` without `dieChoices` → the 6 rhythms as choices; `dice: false` → strip stray `dieChoices`. Tests: legacy-true upgrades, dice-false untouched, migrated item untouched.
+- [ ] Update `data/plans.json` + `test-support/seed.ts` where die items exist; existing `dice: false` literals stay valid as-is.
 
 ## Task 3: Validation (TDD)
 
-- [ ] `plan-validation.ts`: when `dieChoices` present — 1–6 entries; every track choice's `trackId` ∈ `trackChoices`; every `rhythmId` known; `trackChoices` has no duplicates. Editor error strings added to `PlanEditor`'s error summary.
+- [ ] `plan-validation.ts`: when `dice` is true — `dieChoices` required, 1–6 entries; every track choice's `trackId` ∈ `trackChoices`; every `rhythmId` known; `trackChoices` has no duplicates. Editor error strings added to `PlanEditor`'s error summary.
 
 ## Task 4: Shared `PracticeDie` component
 
@@ -74,7 +76,7 @@ Legacy normalization (read-time, in `actions.ts`): `dice: true` → `dieChoices`
 
 ## Task 5: Practice page wiring
 
-- [ ] `PracticeTasksList`: 🎲 "Roll for it!" button on `dieChoices` items summons the die for that item; rolled face state initialized from localStorage; a rolled track choice switches the rendered track (name, audio/video, tap-keys, note — all already keyed by `trackId`); a rolled rhythm shows the rhythm chip next to the button.
+- [ ] `PracticeTasksList`: 🎲 "Roll for it!" button on `dice: true` items summons the die for that item (auto-summon on page load is the noted follow-up, not built here); rolled face state initialized from localStorage; a rolled track choice switches the rendered track (name, audio/video, tap-keys, note — all already keyed by `trackId`); a rolled rhythm shows the rhythm chip next to the button.
 - [ ] Component test: rolling a track choice re-renders the item under the rolled track's id.
 
 ## Task 6: Editor — track pool UI
@@ -84,7 +86,7 @@ Legacy normalization (read-time, in `actions.ts`): `dice: true` → `dieChoices`
 
 ## Task 7: Editor — die choice list UI
 
-- [ ] `PracticeItemRow`: "🎲 Use die" toggle. On enable, default `dieChoices` = the pool's tracks in order (single-track pool defaults to the 6 legacy rhythms). The list renders numbered 1–6 with remove ×; "+ add" offers pool tracks and rhythms; cap at 6. On disable, `dieChoices` removed.
+- [ ] `PracticeItemRow`: the Dice checkbox stays the `dice` toggle. On enable, default `dieChoices` = the pool's tracks in order (single-track pool defaults to the 6 legacy rhythms). The list renders numbered 1–6 with remove ×; "+ add" offers pool tracks and rhythms; cap at 6. On disable, `dice: false` and `dieChoices` removed.
 
 ## Task 8: Docs + finish line
 
