@@ -18,7 +18,11 @@ export type PracticeItem = {
 // has exactly one active track (the first/only one in its pool). When the dice
 // feature lands (#5), this is the seam that returns the rolled track instead.
 export function primaryTrackId(item: PracticeItem): string {
-  return item.trackChoices[0];
+  const trackId = item.trackChoices[0];
+  if (!trackId) {
+    throw new Error("PracticeItem.trackChoices must contain at least one trackId");
+  }
+  return trackId;
 }
 
 export type Plan = {
