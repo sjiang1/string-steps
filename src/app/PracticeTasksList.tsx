@@ -22,7 +22,9 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
   const [activeDieItemKey, setActiveDieItemKey] = useState<string | null>(null);
   const [rolledFaces, setRolledFaces] = useState<Record<string, number>>({});
 
-  // Restore each die item's last settled face (localStorage is client-only).
+  // Restore each die item's last settled face. localStorage is client-only, so
+  // this must run post-hydration in an effect — a lazy initializer would make
+  // the first client render differ from the server HTML.
   useEffect(() => {
     const restored: Record<string, number> = {};
     for (const item of items) {
@@ -30,7 +32,8 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
       const face = storedDieFace(primaryTrackId(item), item.dieChoices.length);
       if (face !== null) restored[primaryTrackId(item)] = face;
     }
-    setRolledFaces(restored);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot localStorage hydration
+    if (Object.keys(restored).length > 0) setRolledFaces(restored);
   }, [items]);
 
   const activeDieItem = items.find(

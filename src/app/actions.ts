@@ -136,7 +136,8 @@ function normalizeItem(item: PracticeItem): PracticeItem {
       dieChoices: rhythms.map((r) => ({ kind: "rhythm", rhythmId: r.id })),
     };
   } else if (!out.dice && out.dieChoices !== undefined) {
-    const { dieChoices: _stray, ...rest } = out;
+    const rest = { ...out };
+    delete rest.dieChoices;
     out = rest;
   }
   return out;

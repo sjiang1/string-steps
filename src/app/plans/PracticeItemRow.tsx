@@ -15,21 +15,27 @@ const TASK_LABEL: Record<string, string> = {
 
 export default function PracticeItemRow({
   item,
-  track,
+  tracks,
   disabled,
   invalidTaskIndices,
   onChange,
-  onChangeTrack,
+  onAddTrack,
+  onReplaceTrack,
+  onRemoveTrack,
   onRemove,
 }: {
   item: PracticeItem;
-  track: Track | undefined;
+  tracks: Track[];
   disabled: boolean;
   invalidTaskIndices: Set<number>;
   onChange: (next: PracticeItem) => void;
-  onChangeTrack: () => void;
+  onAddTrack: () => void;
+  onReplaceTrack: (trackId: string) => void;
+  onRemoveTrack: (trackId: string) => void;
   onRemove: () => void;
 }) {
+  const track = tracks.find((t) => t.id === primaryTrackId(item));
+  const trackName = (id: string) => tracks.find((t) => t.id === id)?.name ?? id;
   const {
     attributes,
     listeners,
@@ -66,16 +72,9 @@ export default function PracticeItemRow({
           )}
         </div>
         <button
-          onClick={onChangeTrack}
-          disabled={disabled}
-          className="rounded px-2 text-xs font-medium text-sky-700 hover:text-sky-900 disabled:text-zinc-300"
-        >
-          Change
-        </button>
-        <button
           onClick={onRemove}
           disabled={disabled}
-          aria-label="Remove track"
+          aria-label="Remove practice item"
           className="rounded px-2 text-zinc-400 hover:text-red-600 disabled:hover:text-zinc-400"
         >
           ×
@@ -83,6 +82,41 @@ export default function PracticeItemRow({
       </div>
 
       <div className="p-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {item.trackChoices.map((id) => (
+          <span
+            key={id}
+            className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-1 text-sm text-sky-900"
+          >
+            <button
+              onClick={() => onReplaceTrack(id)}
+              disabled={disabled}
+              title="Change this track"
+              className="disabled:text-zinc-400"
+            >
+              {trackName(id)}
+            </button>
+            {item.trackChoices.length > 1 && (
+              <button
+                onClick={() => onRemoveTrack(id)}
+                disabled={disabled}
+                aria-label={`Remove ${trackName(id)} from pool`}
+                className="text-sky-700 hover:text-red-600 disabled:text-zinc-400"
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+        <button
+          onClick={onAddTrack}
+          disabled={disabled}
+          className="rounded-full border border-dashed border-zinc-300 px-2 py-1 text-sm text-zinc-500 disabled:text-zinc-300"
+        >
+          + add track
+        </button>
+      </div>
+
       <div className="flex flex-wrap gap-2">
         {item.tasks.map((task, idx) => (
           <TaskChip
