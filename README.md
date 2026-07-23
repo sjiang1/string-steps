@@ -20,11 +20,11 @@ Each task has a repeat count, and any task can be a **focus drill** — scoped t
 
 - **Audio** — a recording to sing or play along with.
 - **Video** — a teacher demo of new notes; supports pause, rewind, and step-through so the student can learn at their own pace.
-- **Reference** — a named exercise with no media (e.g. *A Major Scale*), used for play-without-track drills and the dice roller.
+- **Reference** — a named exercise with no media (e.g. *A Major Scale*), used for play-without-track drills and the practice die.
 
-### Dice Roller
+### Practice Die
 
-Some exercises (e.g., A Major Scale) use a dice roll to pick the rhythm. A built-in dice roller is available when needed.
+Some practice items let the die decide what to play. Each die-enabled item keeps an ordered list of up to six choices — rhythms (e.g. 🍕 *pepperoni pizza*) and/or tracks from the item's pool — and tapping **🎲 Roll for it!** summons a big shared die: the rolled number picks the matching choice (rolling past the end of the list means "roll again!"). A rolled track switches the whole item — audio, tap targets, notes — to that track. See the [implementation plan](docs/superpowers/plans/2026-07-21-shared-practice-die.md).
 
 ### Get Ready Checklist
 
@@ -63,7 +63,7 @@ The **Calendar** tab shows each day at a glance — how much of that day's plan 
 
 ### Plans
 
-The **Plans** tab is where the week's practice is built: create a plan, add tracks with their tasks (sing / play / focus drills / dice), set the Get Ready checklist, and choose the date it becomes active. Past plans are frozen so practice history stays intact.
+The **Plans** tab is where the week's practice is built: create a plan, add practice items with their tasks (sing / play / focus drills), give an item a pool of tracks and a die with its choice list, set the Get Ready checklist, and choose the date it becomes active. Past plans are frozen so practice history stays intact.
 
 ### Track Notes
 
