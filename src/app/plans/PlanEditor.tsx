@@ -18,7 +18,7 @@ import {
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { primaryTrackId, type Plan, type Track } from "../plans";
 import { savePlan } from "../actions";
-import { validatePlan } from "./plan-validation";
+import { isTaskError, validatePlan } from "./plan-validation";
 import { nextAvailableTrackId } from "../track-id";
 import PracticeItemRow from "./PracticeItemRow";
 import TrackPicker from "./TrackPicker";
@@ -51,6 +51,7 @@ export default function PlanEditor({
   const invalidByTrack = useMemo(() => {
     const map = new Map<string, Set<number>>();
     for (const e of errors) {
+      if (!isTaskError(e)) continue;
       if (!map.has(e.trackId)) map.set(e.trackId, new Set());
       map.get(e.trackId)!.add(e.taskIndex);
     }
@@ -210,7 +211,19 @@ export default function PlanEditor({
             <span>Fill in every focus task&rsquo;s sub-part label. </span>
           )}
           {errors.some((e) => e.reason === "duplicate") && (
-            <span>Remove duplicate tasks (same action + sub-part).</span>
+            <span>Remove duplicate tasks (same action + sub-part). </span>
+          )}
+          {errors.some((e) => e.reason === "die-choices-count") && (
+            <span>Give every die item 1–6 choices. </span>
+          )}
+          {errors.some((e) => e.reason === "die-track-not-in-pool") && (
+            <span>Die choices can only use tracks from the item&rsquo;s pool. </span>
+          )}
+          {errors.some((e) => e.reason === "die-rhythm-unknown") && (
+            <span>Remove die choices with unknown rhythms. </span>
+          )}
+          {errors.some((e) => e.reason === "duplicate-pool-track") && (
+            <span>Remove duplicate tracks from the item&rsquo;s pool.</span>
           )}
         </p>
       )}
