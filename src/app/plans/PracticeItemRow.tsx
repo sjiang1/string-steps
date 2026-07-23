@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { primaryTrackId, type PracticeItem, type PlanTask, type Track } from "../plans";
+import { primaryTrackId, type DieChoice, type PracticeItem, type PlanTask, type Track } from "../plans";
+import { rhythmById, rhythms } from "../rhythms";
 import TaskChip from "./TaskChip";
 import TeacherNoteField from "./TeacherNoteField";
 import { sortTasks } from "./task-order";
@@ -12,6 +14,15 @@ const TASK_LABEL: Record<string, string> = {
   playWithTrack: "Play w/ track",
   playWithoutTrack: "Play w/o track",
 };
+
+// Enabling the die starts from a sensible list: a multi-track pool rolls
+// between its tracks; a single-track pool gets the six legacy rhythms.
+function defaultDieChoices(item: PracticeItem): DieChoice[] {
+  if (item.trackChoices.length > 1) {
+    return item.trackChoices.slice(0, 6).map((trackId) => ({ kind: "track", trackId }));
+  }
+  return rhythms.map((r) => ({ kind: "rhythm", rhythmId: r.id }));
+}
 
 export default function PracticeItemRow({
   item,
@@ -36,6 +47,20 @@ export default function PracticeItemRow({
 }) {
   const track = tracks.find((t) => t.id === primaryTrackId(item));
   const trackName = (id: string) => tracks.find((t) => t.id === id)?.name ?? id;
+  const [addingDieChoice, setAddingDieChoice] = useState(false);
+
+  const dieChoices = item.dieChoices ?? [];
+
+  function choiceLabel(choice: DieChoice): string {
+    if (choice.kind === "track") return trackName(choice.trackId);
+    const rhythm = rhythmById(choice.rhythmId);
+    return rhythm ? `${rhythm.emoji} ${rhythm.label}` : choice.rhythmId;
+  }
+
+  function addDieChoice(choice: DieChoice) {
+    onChange({ ...item, dieChoices: [...dieChoices, choice] });
+    setAddingDieChoice(false);
+  }
   const {
     attributes,
     listeners,
@@ -170,10 +195,80 @@ export default function PracticeItemRow({
           type="checkbox"
           checked={item.dice}
           disabled={disabled}
-          onChange={(e) => onChange({ ...item, dice: e.target.checked })}
+          onChange={(e) => {
+            setAddingDieChoice(false);
+            if (e.target.checked) {
+              onChange({ ...item, dice: true, dieChoices: defaultDieChoices(item) });
+            } else {
+              const next: PracticeItem = { ...item, dice: false };
+              delete next.dieChoices;
+              onChange(next);
+            }
+          }}
         />
         Dice
       </label>
+
+      {item.dice && (
+        <div className="ml-6 space-y-1">
+          {dieChoices.map((choice, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <span className="w-5 text-right tabular-nums text-zinc-500">{i + 1}.</span>
+              <span className="flex-1">{choiceLabel(choice)}</span>
+              <button
+                onClick={() =>
+                  onChange({ ...item, dieChoices: dieChoices.filter((_, j) => j !== i) })
+                }
+                disabled={disabled}
+                aria-label={`Remove die choice ${i + 1}`}
+                className="rounded px-2 text-zinc-400 hover:text-red-600 disabled:hover:text-zinc-400"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {dieChoices.length < 6 && !addingDieChoice && (
+            <button
+              onClick={() => setAddingDieChoice(true)}
+              disabled={disabled}
+              className="rounded-full border border-dashed border-zinc-300 px-2 py-1 text-sm text-zinc-500 disabled:text-zinc-300"
+            >
+              + add choice
+            </button>
+          )}
+          {dieChoices.length < 6 && addingDieChoice && (
+            <div className="flex flex-wrap gap-1">
+              {item.trackChoices.map((id) => (
+                <button
+                  key={`track-${id}`}
+                  onClick={() => addDieChoice({ kind: "track", trackId: id })}
+                  disabled={disabled}
+                  className="rounded-full bg-sky-100 px-2 py-1 text-sm text-sky-900"
+                >
+                  {trackName(id)}
+                </button>
+              ))}
+              {rhythms.map((r) => (
+                <button
+                  key={`rhythm-${r.id}`}
+                  onClick={() => addDieChoice({ kind: "rhythm", rhythmId: r.id })}
+                  disabled={disabled}
+                  className="rounded-full bg-violet-100 px-2 py-1 text-sm text-violet-900"
+                >
+                  {r.emoji} {r.label}
+                </button>
+              ))}
+              <button
+                onClick={() => setAddingDieChoice(false)}
+                disabled={disabled}
+                className="rounded-full px-2 py-1 text-sm text-zinc-500"
+              >
+                cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <TeacherNoteField
         value={item.teacherNote ?? ""}
