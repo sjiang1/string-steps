@@ -9,8 +9,9 @@ import tracksSeed from "@data/tracks.json";
 import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
 import { cookies } from "next/headers";
-import type { Plan, PlanSchedule, Track } from "./plans";
+import type { Plan, PracticeItem, PlanSchedule, Track } from "./plans";
 import { mostRecentPastPracticePlanIdAsOf } from "./plans";
+import { rhythms } from "./rhythms";
 import { isClassDay, isNonPracticeDay } from "./day-types";
 import { todayLocal } from "./today";
 import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-activation";
@@ -117,18 +118,34 @@ function nextPlanId(plans: Plan[]): string {
 
 // --- Public API ---
 
-// Upgrade legacy practice items that still carry a single `trackId` (the shape
-// stored in Redis before #4) to the `trackChoices` pool shape. Keeps prod data
-// working without a manual Redis migration.
+// Upgrade legacy practice items at read time — keeps prod data working without
+// a manual Redis migration. Two generations of shape are handled: a single
+// `trackId` (pre-#4) becomes the `trackChoices` pool, and `dice: true` without
+// `dieChoices` (pre-#5) gets the six rhythms as its choice list (today's rhythm
+// die, unchanged behavior). `dice: false` sheds any stray `dieChoices`.
+function normalizeItem(item: PracticeItem): PracticeItem {
+  let out = item;
+  if (!Array.isArray(out.trackChoices)) {
+    const legacy = out as unknown as { trackId?: string };
+    const { trackId, ...rest } = legacy;
+    out = { ...(rest as object), trackChoices: trackId ? [trackId] : [] } as PracticeItem;
+  }
+  if (out.dice && out.dieChoices === undefined) {
+    out = {
+      ...out,
+      dieChoices: rhythms.map((r) => ({ kind: "rhythm", rhythmId: r.id })),
+    };
+  } else if (!out.dice && out.dieChoices !== undefined) {
+    const { dieChoices: _stray, ...rest } = out;
+    out = rest;
+  }
+  return out;
+}
+
 function normalizePlans(plans: Plan[]): Plan[] {
   return plans.map((plan) => ({
     ...plan,
-    items: plan.items.map((item) => {
-      if (Array.isArray(item.trackChoices)) return item;
-      const legacy = item as unknown as { trackId?: string };
-      const { trackId, ...rest } = legacy;
-      return { ...(rest as object), trackChoices: trackId ? [trackId] : [] } as typeof item;
-    }),
+    items: plan.items.map(normalizeItem),
   }));
 }
 

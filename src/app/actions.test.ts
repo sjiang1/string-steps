@@ -398,6 +398,88 @@ describe("getPlans — legacy trackId normalization", () => {
   });
 });
 
+describe("getPlans — legacy dice normalization", () => {
+  const LEGACY_RHYTHM_CHOICES = [
+    { kind: "rhythm", rhythmId: "pepperoni" },
+    { kind: "rhythm", rhythmId: "ice-cream" },
+    { kind: "rhythm", rhythmId: "pineapple" },
+    { kind: "rhythm", rhythmId: "pony" },
+    { kind: "rhythm", rhythmId: "double-pepperoni" },
+    { kind: "rhythm", rhythmId: "may-song" },
+  ];
+
+  it("upgrades dice:true items without dieChoices to the six legacy rhythms", async () => {
+    setupScheduleData({});
+    setupPlansData([
+      {
+        id: "0",
+        createdDate: "2026-04-10",
+        items: [{ trackChoices: ["scale"], tasks: [], dice: true }],
+        checklist: [],
+      },
+    ]);
+    const { getPlans } = await loadActions();
+    expect((await getPlans())[0].items[0].dieChoices).toEqual(LEGACY_RHYTHM_CHOICES);
+  });
+
+  it("upgrades a pre-#4 trackId item with dice:true in one pass", async () => {
+    setupScheduleData({});
+    setupPlansData([
+      {
+        id: "0",
+        createdDate: "2026-04-10",
+        items: [{ trackId: "twinkle", tasks: [], dice: true }],
+        checklist: [],
+      },
+    ]);
+    const { getPlans } = await loadActions();
+    const item = (await getPlans())[0].items[0];
+    expect(item.trackChoices).toEqual(["twinkle"]);
+    expect(item.dieChoices).toEqual(LEGACY_RHYTHM_CHOICES);
+  });
+
+  it("strips stray dieChoices from dice:false items", async () => {
+    setupScheduleData({});
+    setupPlansData([
+      {
+        id: "0",
+        createdDate: "2026-04-10",
+        items: [
+          {
+            trackChoices: ["scale"],
+            tasks: [],
+            dice: false,
+            dieChoices: [{ kind: "track", trackId: "scale" }],
+          },
+        ],
+        checklist: [],
+      },
+    ]);
+    const { getPlans } = await loadActions();
+    const item = (await getPlans())[0].items[0];
+    expect(item.dice).toBe(false);
+    expect("dieChoices" in item).toBe(false);
+  });
+
+  it("leaves an already-migrated die item untouched", async () => {
+    setupScheduleData({});
+    const dieChoices = [
+      { kind: "track", trackId: "a" },
+      { kind: "rhythm", rhythmId: "pony" },
+    ];
+    setupPlansData([
+      {
+        id: "0",
+        createdDate: "2026-04-10",
+        items: [{ trackChoices: ["a", "b"], tasks: [], dice: true, dieChoices }],
+        checklist: [],
+      },
+    ]);
+    const { getPlans } = await loadActions();
+    expect((await getPlans())[0].items[0].dieChoices).toEqual(dieChoices);
+  });
+});
+
 describe("savePlan — inline reference tracks", () => {
   it("persists new reference tracks to the catalog alongside the plan", async () => {
     setupScheduleData({});

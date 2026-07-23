@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TEST_PRIMARY as PRIMARY, TEST_LINKED as LINKED } from "./test-support/people";
-import { primaryTrackId } from "./plans";
+import { primaryTrackId, rolledTrackId, type PracticeItem } from "./plans";
 
 async function loadPlans() {
   const mod = await import("./plans");
@@ -20,6 +20,37 @@ describe("primaryTrackId", () => {
     expect(
       primaryTrackId({ trackChoices: ["twinkle", "minuet"], tasks: [], dice: false }),
     ).toBe("twinkle");
+  });
+});
+
+describe("rolledTrackId", () => {
+  const item: PracticeItem = {
+    trackChoices: ["twinkle", "minuet"],
+    tasks: [],
+    dice: true,
+    dieChoices: [
+      { kind: "track", trackId: "twinkle" },
+      { kind: "rhythm", rhythmId: "pepperoni" },
+      { kind: "track", trackId: "minuet" },
+    ],
+  };
+
+  it("resolves a track choice by face number (face 1 = first choice)", () => {
+    expect(rolledTrackId(item, 1)).toBe("twinkle");
+    expect(rolledTrackId(item, 3)).toBe("minuet");
+  });
+
+  it("returns null for a rhythm choice", () => {
+    expect(rolledTrackId(item, 2)).toBeNull();
+  });
+
+  it("returns null for a face beyond the choice list (miss — roll again)", () => {
+    expect(rolledTrackId(item, 4)).toBeNull();
+    expect(rolledTrackId(item, 6)).toBeNull();
+  });
+
+  it("returns null when the item has no die choices", () => {
+    expect(rolledTrackId({ trackChoices: ["x"], tasks: [], dice: false }, 1)).toBeNull();
   });
 });
 
