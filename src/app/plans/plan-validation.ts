@@ -1,10 +1,22 @@
 import { primaryTrackId, type Plan } from "../plans";
+import { rhythmById } from "../rhythms";
 
-export type PlanValidationError = {
+export type PlanTaskError = {
   trackId: string;
   taskIndex: number;
   reason: "empty-focus" | "duplicate";
 };
+
+export type PlanItemError = {
+  trackId: string;
+  reason: "die-choices-count" | "die-track-not-in-pool" | "die-rhythm-unknown" | "duplicate-pool-track";
+};
+
+export type PlanValidationError = PlanTaskError | PlanItemError;
+
+export function isTaskError(e: PlanValidationError): e is PlanTaskError {
+  return "taskIndex" in e;
+}
 
 export function validatePlan(plan: Plan): PlanValidationError[] {
   const errors: PlanValidationError[] = [];
@@ -28,6 +40,24 @@ export function validatePlan(plan: Plan): PlanValidationError[] {
         for (const taskIndex of indices) {
           errors.push({ trackId, taskIndex, reason: "duplicate" });
         }
+      }
+    }
+
+    if (new Set(item.trackChoices).size !== item.trackChoices.length) {
+      errors.push({ trackId, reason: "duplicate-pool-track" });
+    }
+
+    if (item.dice) {
+      const choices = item.dieChoices ?? [];
+      if (choices.length < 1 || choices.length > 6) {
+        errors.push({ trackId, reason: "die-choices-count" });
+      }
+      const pool = new Set(item.trackChoices);
+      if (choices.some((c) => c.kind === "track" && !pool.has(c.trackId))) {
+        errors.push({ trackId, reason: "die-track-not-in-pool" });
+      }
+      if (choices.some((c) => c.kind === "rhythm" && rhythmById(c.rhythmId) === undefined)) {
+        errors.push({ trackId, reason: "die-rhythm-unknown" });
       }
     }
   }

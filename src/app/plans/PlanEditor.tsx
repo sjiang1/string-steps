@@ -18,11 +18,11 @@ import {
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { primaryTrackId, type Plan, type Track } from "../plans";
 import { savePlan } from "../actions";
-import { validatePlan } from "./plan-validation";
+import { isTaskError, validatePlan } from "./plan-validation";
 import { nextAvailableTrackId } from "../track-id";
 import PracticeItemRow from "./PracticeItemRow";
 import TrackPicker from "./TrackPicker";
-import { replaceItemTrack } from "./replace-item-track";
+import { addPoolTrack, removePoolTrack, replacePoolTrack } from "./replace-item-track";
 
 export default function PlanEditor({
   plan,
@@ -38,7 +38,10 @@ export default function PlanEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picker, setPicker] = useState<
-    null | { mode: "add" } | { mode: "replace"; index: number }
+    | null
+    | { mode: "add" }
+    | { mode: "add-to-pool"; index: number }
+    | { mode: "replace-pool-track"; index: number; trackId: string }
   >(null);
   // Local copy of the catalog plus any not-yet-saved reference tracks created
   // inline ("add custom practice"). We don't router.refresh() to surface a new
@@ -51,6 +54,7 @@ export default function PlanEditor({
   const invalidByTrack = useMemo(() => {
     const map = new Map<string, Set<number>>();
     for (const e of errors) {
+      if (!isTaskError(e)) continue;
       if (!map.has(e.trackId)) map.set(e.trackId, new Set());
       map.get(e.trackId)!.add(e.taskIndex);
     }
@@ -72,10 +76,15 @@ export default function PlanEditor({
     setDraft((d) => ({ ...d, ...patch }));
   }
 
-  // Add (or, in replace mode, swap in) a track for the current picker target.
+  // Apply the picked track to the current picker target: a new item, an
+  // addition to an item's pool, or an in-place swap of one pooled track.
   function applyTrackToPlan(trackId: string) {
-    if (picker?.mode === "replace") {
-      update({ items: replaceItemTrack(draft.items, picker.index, trackId) });
+    if (picker?.mode === "add-to-pool") {
+      update({ items: addPoolTrack(draft.items, picker.index, trackId) });
+    } else if (picker?.mode === "replace-pool-track") {
+      update({
+        items: replacePoolTrack(draft.items, picker.index, picker.trackId, trackId),
+      });
     } else {
       update({
         items: [...draft.items, { trackChoices: [trackId], tasks: [], dice: false }],
@@ -174,7 +183,7 @@ export default function PlanEditor({
               <PracticeItemRow
                 key={primaryTrackId(item)}
                 item={item}
-                track={trackList.find((t) => t.id === primaryTrackId(item))}
+                tracks={trackList}
                 disabled={disabled}
                 invalidTaskIndices={invalidByTrack.get(primaryTrackId(item)) ?? new Set()}
                 onChange={(next) =>
@@ -182,7 +191,13 @@ export default function PlanEditor({
                     items: draft.items.map((it, i) => (i === idx ? next : it)),
                   })
                 }
-                onChangeTrack={() => setPicker({ mode: "replace", index: idx })}
+                onAddTrack={() => setPicker({ mode: "add-to-pool", index: idx })}
+                onReplaceTrack={(trackId) =>
+                  setPicker({ mode: "replace-pool-track", index: idx, trackId })
+                }
+                onRemoveTrack={(trackId) =>
+                  update({ items: removePoolTrack(draft.items, idx, trackId) })
+                }
                 onRemove={() =>
                   update({
                     items: draft.items.filter((_, i) => i !== idx),
@@ -210,7 +225,19 @@ export default function PlanEditor({
             <span>Fill in every focus task&rsquo;s sub-part label. </span>
           )}
           {errors.some((e) => e.reason === "duplicate") && (
-            <span>Remove duplicate tasks (same action + sub-part).</span>
+            <span>Remove duplicate tasks (same action + sub-part). </span>
+          )}
+          {errors.some((e) => e.reason === "die-choices-count") && (
+            <span>Give every die item 1–6 choices. </span>
+          )}
+          {errors.some((e) => e.reason === "die-track-not-in-pool") && (
+            <span>Die choices can only use tracks from the item&rsquo;s pool. </span>
+          )}
+          {errors.some((e) => e.reason === "die-rhythm-unknown") && (
+            <span>Remove die choices with unknown rhythms. </span>
+          )}
+          {errors.some((e) => e.reason === "duplicate-pool-track") && (
+            <span>Remove duplicate tracks from the item&rsquo;s pool.</span>
           )}
         </p>
       )}
@@ -237,8 +264,18 @@ export default function PlanEditor({
       {picker && (
         <TrackPicker
           tracks={trackList}
-          inPlan={draft.items.map((i) => primaryTrackId(i))}
-          heading={picker.mode === "replace" ? "Change track" : "Add to plan"}
+          inPlan={
+            picker.mode === "add"
+              ? draft.items.map((i) => primaryTrackId(i))
+              : draft.items[picker.index].trackChoices
+          }
+          heading={
+            picker.mode === "add"
+              ? "Add to plan"
+              : picker.mode === "add-to-pool"
+                ? "Add track to pool"
+                : "Change track"
+          }
           onClose={() => setPicker(null)}
           onPick={(t) => applyTrackToPlan(t.id)}
           onCreate={onCreateReferenceTrack}

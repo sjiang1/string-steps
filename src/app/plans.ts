@@ -7,18 +7,28 @@ export type PlanTask = {
   focus?: string;
 };
 
+export type DieChoice =
+  | { kind: "track"; trackId: string } // trackId must be in item.trackChoices
+  | { kind: "rhythm"; rhythmId: string }; // rhythmId must exist in dice-rhythms.json
+
 export type PracticeItem = {
   trackChoices: string[];
   tasks: PlanTask[];
-  dice: boolean;
+  dice: boolean; // die-enabled status (future: auto-summon the die when true)
+  dieChoices?: DieChoice[]; // required 1–6 entries when dice is true; face N = index N-1
   teacherNote?: string;
 };
 
-// The single track a practice item currently resolves to. Today an item always
-// has exactly one active track (the first/only one in its pool). When the dice
-// feature lands (#5), this is the seam that returns the rolled track instead.
+// The track a practice item resolves to before any roll: the first in its pool.
 export function primaryTrackId(item: PracticeItem): string {
   return item.trackChoices[0];
+}
+
+// The track a rolled face resolves to. Null for rhythm choices and for faces
+// beyond the choice list (a miss — the die says "roll again!").
+export function rolledTrackId(item: PracticeItem, face: number): string | null {
+  const choice = item.dieChoices?.[face - 1];
+  return choice?.kind === "track" ? choice.trackId : null;
 }
 
 export type Plan = {

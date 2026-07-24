@@ -12,7 +12,15 @@
       {
         "trackChoices": ["a-major-scale"],
         "tasks": [{ "type": "playWithoutTrack", "count": 1 }],
-        "dice": true
+        "dice": true,
+        "dieChoices": [
+          { "kind": "rhythm", "rhythmId": "pepperoni" },
+          { "kind": "rhythm", "rhythmId": "ice-cream" },
+          { "kind": "rhythm", "rhythmId": "pineapple" },
+          { "kind": "rhythm", "rhythmId": "pony" },
+          { "kind": "rhythm", "rhythmId": "double-pepperoni" },
+          { "kind": "rhythm", "rhythmId": "may-song" }
+        ]
       }
     ],
     "checklist": ["mouse-holes", "baby-bear", "first-finger", "hugger-fingers", "puppy-space"]
