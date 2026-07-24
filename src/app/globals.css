@@ -29,3 +29,14 @@ body {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(400%); }
 }
+
+/* The floating practice die idles with a gentle bob, like a toy waiting to be
+   picked up. Keeps its playful tilt when reduced motion is requested. */
+@keyframes die-bob {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-7px) rotate(-8deg); }
+}
+.animate-die-bob { animation: die-bob 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-die-bob { animation: none; transform: rotate(-8deg); }
+}

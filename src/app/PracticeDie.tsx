@@ -34,17 +34,32 @@ export function storedDieFace(itemKey: string, choiceCount: number): number | nu
   return n;
 }
 
+// One die face as pip art, shared by the overlay die and the floating
+// page-corner die.
+export function DieFace({ face, size }: { face: number; size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true">
+      <rect x="5" y="5" width="90" height="90" rx="15" ry="15" fill={FACE_COLORS[face - 1]} />
+      {PIP_POSITIONS[face - 1].map(([cx, cy], i) => (
+        <circle key={i} cx={cx} cy={cy} r="10" fill="black" />
+      ))}
+    </svg>
+  );
+}
+
 // The one shared die for the practice page. Summoned by a die-enabled practice
 // item; a big tap-anywhere target for small fingers. Rolling a face beyond the
 // item's choice list is a miss ("roll again!") and is not persisted or
 // reported — only hits settle.
 export default function PracticeDie({
   itemKey,
+  heading,
   choiceCount,
   onSettle,
   onClose,
 }: {
   itemKey: string;
+  heading?: string;
   choiceCount: number;
   onSettle: (face: number) => void;
   onClose: () => void;
@@ -100,17 +115,15 @@ export default function PracticeDie({
         >
           ×
         </button>
+        {heading && (
+          <p className="mt-2 text-base font-medium text-zinc-500">{heading}</p>
+        )}
         <button
           onClick={roll}
           aria-label={`Die showing ${face}, tap to roll`}
-          className={`mt-4 ${rolling ? "animate-bounce" : ""}`}
+          className={`${heading ? "" : "mt-4"} ${rolling ? "animate-bounce" : ""}`}
         >
-          <svg width="160" height="160" viewBox="0 0 100 100">
-            <rect x="5" y="5" width="90" height="90" rx="15" ry="15" fill={FACE_COLORS[face - 1]} />
-            {PIP_POSITIONS[face - 1].map(([cx, cy], i) => (
-              <circle key={i} cx={cx} cy={cy} r="10" fill="black" />
-            ))}
-          </svg>
+          <DieFace face={face} size={160} />
         </button>
         <p className="min-h-7 text-xl font-semibold text-zinc-700">
           {rolling ? "Rolling…" : miss ? "🙃 Roll again!" : "Tap the die to roll!"}

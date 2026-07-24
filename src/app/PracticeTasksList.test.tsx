@@ -63,7 +63,8 @@ describe("PracticeTasksList die wiring", () => {
     expect(screen.getByText("Track A")).toBeTruthy();
     expect(screen.getByTestId("task-list").textContent).toBe("a");
 
-    fireEvent.click(screen.getByText("🎲 Roll for it!"));
+    fireEvent.click(screen.getByLabelText("Pick up the die"));
+    expect(screen.getByText("Rolling for Track A!")).toBeTruthy();
     fireEvent.click(screen.getByLabelText(/tap to roll/));
     act(() => {
       vi.advanceTimersByTime(26 * 90);
@@ -74,6 +75,12 @@ describe("PracticeTasksList die wiring", () => {
     expect(localStorage.getItem("dieFace:a")).toBe("2");
   });
 
+  it("summons the die for a specific item from its card watermark", () => {
+    renderList([DIE_ITEM]);
+    fireEvent.click(screen.getByLabelText("Roll the die for Track A"));
+    expect(screen.getByText("Rolling for Track A!")).toBeTruthy();
+  });
+
   it("restores the last rolled face from localStorage on load", () => {
     localStorage.setItem("dieFace:a", "2");
     renderList([DIE_ITEM]);
@@ -81,8 +88,9 @@ describe("PracticeTasksList die wiring", () => {
     expect(screen.getByText("Track B")).toBeTruthy();
   });
 
-  it("shows no die button for dice:false items", () => {
+  it("shows no floating die or watermark when no item has dice", () => {
     renderList([{ trackChoices: ["a"], tasks: [], dice: false }]);
-    expect(screen.queryByText("🎲 Roll for it!")).toBeNull();
+    expect(screen.queryByLabelText("Pick up the die")).toBeNull();
+    expect(screen.queryByLabelText(/Roll the die/)).toBeNull();
   });
 });
