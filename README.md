@@ -24,7 +24,7 @@ Each task has a repeat count, and any task can be a **focus drill** — scoped t
 
 ### Practice Die
 
-Some practice items let the die decide what to play. Each die-enabled item keeps an ordered list of up to six choices — rhythms (e.g. 🍕 *pepperoni pizza*) and/or tracks from the item's pool — and tapping **🎲 Roll for it!** summons a big shared die: the rolled number picks the matching choice (rolling past the end of the list means "roll again!"). A rolled track switches the whole item — audio, tap targets, notes — to that track. See the [implementation plan](docs/superpowers/plans/2026-07-21-shared-practice-die.md).
+Some practice items let the die decide what to play. Each die-enabled item keeps an ordered list of up to six choices — rhythms (e.g. 🍕 *pepperoni pizza*) and/or tracks from the item's pool — and tapping the item's **🎲** summons a big shared die: the rolled number picks the matching choice (rolling past the end of the list means "roll again!"). A rolled track switches the whole item — audio, tap targets, notes — to that track. See the [implementation plan](docs/superpowers/plans/2026-07-21-shared-practice-die.md).
 
 ### Get Ready Checklist
 

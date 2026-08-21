@@ -34,8 +34,7 @@ export function storedDieFace(itemKey: string, choiceCount: number): number | nu
   return n;
 }
 
-// One die face as pip art, shared by the overlay die and the floating
-// page-corner die.
+// One die face as pip art.
 export function DieFace({ face, size }: { face: number; size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true">

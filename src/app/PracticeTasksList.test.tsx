@@ -63,7 +63,7 @@ describe("PracticeTasksList die wiring", () => {
     expect(screen.getByText("Track A")).toBeTruthy();
     expect(screen.getByTestId("task-list").textContent).toBe("a");
 
-    fireEvent.click(screen.getByLabelText("Pick up the die"));
+    fireEvent.click(screen.getByLabelText("Roll the die for Track A"));
     expect(screen.getByText("Rolling for Track A!")).toBeTruthy();
     fireEvent.click(screen.getByLabelText(/tap to roll/));
     act(() => {
@@ -88,9 +88,8 @@ describe("PracticeTasksList die wiring", () => {
     expect(screen.getByText("Track B")).toBeTruthy();
   });
 
-  it("shows no floating die or watermark when no item has dice", () => {
+  it("shows no die watermark when no item has dice", () => {
     renderList([{ trackChoices: ["a"], tasks: [], dice: false }]);
-    expect(screen.queryByLabelText("Pick up the die")).toBeNull();
     expect(screen.queryByLabelText(/Roll the die/)).toBeNull();
   });
 });
