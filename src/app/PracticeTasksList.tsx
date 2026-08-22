@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PracticeDie, { DieFace, storedDieFace } from "./PracticeDie";
+import PracticeDie, { storedDieFace } from "./PracticeDie";
 import TaskList, { TaskTypeDef } from "./TaskList";
 import TrackNote from "./TrackNote";
 import { primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
@@ -20,22 +20,7 @@ interface Props {
 export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks, notesByTrack, activeStudent }: Props) {
   // All keyed by itemKey (= the item's first pool track).
   const [activeDieItemKey, setActiveDieItemKey] = useState<string | null>(null);
-  const [lastDieItemKey, setLastDieItemKey] = useState<string | null>(null);
   const [rolledFaces, setRolledFaces] = useState<Record<string, number>>({});
-  const [fabFace, setFabFace] = useState(5);
-
-  const dieItems = items.filter((i) => i.dice && i.dieChoices && i.dieChoices.length > 0);
-
-  function summonDie(itemKey: string) {
-    setActiveDieItemKey(itemKey);
-    setLastDieItemKey(itemKey);
-  }
-
-  // The floating die re-opens for the item it last rolled for, else the first.
-  function summonFromFab() {
-    const last = dieItems.find((i) => primaryTrackId(i) === lastDieItemKey);
-    summonDie(primaryTrackId(last ?? dieItems[0]));
-  }
 
   // Restore each die item's last settled face. localStorage is client-only, so
   // this must run post-hydration in an effect — a lazy initializer would make
@@ -78,7 +63,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
                 )}
                 {item.dice && (
                   <button
-                    onClick={() => summonDie(itemKey)}
+                    onClick={() => setActiveDieItemKey(itemKey)}
                     aria-label={`Roll the die for ${track?.name ?? trackId}`}
                     className="ml-auto text-xl opacity-50 hover:opacity-100"
                   >
@@ -118,15 +103,6 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
           );
         })}
       </ul>
-      {dieItems.length > 0 && (
-        <button
-          onClick={summonFromFab}
-          aria-label="Pick up the die"
-          className="fixed bottom-20 right-4 z-20 animate-die-bob drop-shadow-lg"
-        >
-          <DieFace face={fabFace} size={56} />
-        </button>
-      )}
       {activeDieItem && (
         <PracticeDie
           itemKey={primaryTrackId(activeDieItem)}
@@ -136,7 +112,6 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
           }!`}
           choiceCount={activeDieItem.dieChoices!.length}
           onSettle={(face) => {
-            setFabFace(face);
             setRolledFaces((m) => ({ ...m, [primaryTrackId(activeDieItem)]: face }));
           }}
           onClose={() => setActiveDieItemKey(null)}
