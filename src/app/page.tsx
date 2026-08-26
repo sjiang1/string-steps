@@ -84,7 +84,7 @@ export default async function Home() {
         )}
       </div>
 
-      <div className="sticky top-0 z-10 bg-zinc-50 px-8 pt-4 pb-4 border-b border-zinc-200 shadow-sm">
+      <div className="bg-zinc-50 px-8 pt-4 pb-4 border-b border-zinc-200">
         <h2 className="text-lg font-semibold mb-2">Get Ready Checklist</h2>
         <GetReadyChecklist
           items={plan.checklist
