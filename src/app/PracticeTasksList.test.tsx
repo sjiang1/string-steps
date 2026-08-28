@@ -29,6 +29,8 @@ const DIE_ITEM: PracticeItem = {
   ],
 };
 
+const NAMED_ITEM: PracticeItem = { ...DIE_ITEM, name: "Twinkle Twinkle" };
+
 const LINKED: Student = { id: "s", name: "S", emoji: "🐨", kind: "linked" };
 
 function renderList(items: PracticeItem[]) {
@@ -91,5 +93,37 @@ describe("PracticeTasksList die wiring", () => {
   it("shows no die watermark when no item has dice", () => {
     renderList([{ trackChoices: ["a"], tasks: [], dice: false }]);
     expect(screen.queryByLabelText(/Roll the die/)).toBeNull();
+  });
+});
+
+describe("PracticeTasksList item names", () => {
+  it("titles an unnamed item with its resolved track's name", () => {
+    renderList([DIE_ITEM]);
+    expect(screen.getByRole("heading", { name: "Track A" })).toBeTruthy();
+    expect(screen.queryByText(/Playing/)).toBeNull();
+  });
+
+  it("titles a named item with its own name and shows the track as secondary text", () => {
+    renderList([NAMED_ITEM]);
+    expect(screen.getByRole("heading", { name: "Twinkle Twinkle" })).toBeTruthy();
+    expect(screen.getByText("♪ Track A")).toBeTruthy();
+  });
+
+  it("keeps the item name as title after a roll and updates the secondary track", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.2);
+    renderList([NAMED_ITEM]);
+    fireEvent.click(screen.getByLabelText("Roll the die for Twinkle Twinkle"));
+    expect(screen.getByText("Rolling for Twinkle Twinkle!")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/tap to roll/));
+    act(() => {
+      vi.advanceTimersByTime(26 * 90);
+    });
+    expect(screen.getByRole("heading", { name: "Twinkle Twinkle" })).toBeTruthy();
+    expect(screen.getByText("♪ Track B")).toBeTruthy();
+  });
+
+  it("omits the secondary track line when it would repeat the item name", () => {
+    renderList([{ ...DIE_ITEM, name: "Track A" }]);
+    expect(screen.queryByText("♪ Track A")).toBeNull();
   });
 });
