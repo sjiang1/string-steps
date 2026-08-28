@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import PracticeDie, { storedDieFace } from "./PracticeDie";
 import TaskList, { TaskTypeDef } from "./TaskList";
 import TrackNote from "./TrackNote";
-import { primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
+import { itemDisplayName, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
 import { rhythmById } from "./rhythms";
 import type { Student } from "./students";
 
@@ -52,10 +52,15 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
           const rolledChoice = face !== undefined ? item.dieChoices?.[face - 1] : undefined;
           const rolledRhythm =
             rolledChoice?.kind === "rhythm" ? rhythmById(rolledChoice.rhythmId) : undefined;
+          // Unnamed items are titled by whatever track they currently resolve
+          // to; named items keep their own title and show the track beneath.
+          const trackName = track?.name ?? trackId;
+          const title = item.name ?? trackName;
+          const showTrackLine = item.name !== undefined && trackName !== title;
           return (
             <li key={itemKey} className="rounded-lg border bg-white p-4">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold">{track?.name ?? trackId}</span>
+                <h3 className="font-semibold">{title}</h3>
                 {track?.type === "video" && (
                   <span className="text-xs bg-zinc-100 text-zinc-500 rounded px-1.5 py-0.5">
                     video
@@ -64,7 +69,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
                 {item.dice && (
                   <button
                     onClick={() => setActiveDieItemKey(itemKey)}
-                    aria-label={`Roll the die for ${track?.name ?? trackId}`}
+                    aria-label={`Roll the die for ${title}`}
                     className="ml-auto text-xl opacity-50 hover:opacity-100"
                   >
                     🎲
@@ -80,6 +85,9 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
                 <p className="mb-2 text-sm font-medium text-violet-700">
                   🎲 {rolledRhythm.emoji} {rolledRhythm.label}
                 </p>
+              )}
+              {showTrackLine && (
+                <p className="mb-2 text-sm text-zinc-500">♪ {trackName}</p>
               )}
               <TaskList
                 trackId={trackId}
@@ -106,10 +114,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
       {activeDieItem && (
         <PracticeDie
           itemKey={primaryTrackId(activeDieItem)}
-          heading={`Rolling for ${
-            tracks.find((t) => t.id === primaryTrackId(activeDieItem))?.name ??
-            primaryTrackId(activeDieItem)
-          }!`}
+          heading={`Rolling for ${itemDisplayName(activeDieItem, tracks)}!`}
           choiceCount={activeDieItem.dieChoices!.length}
           onSettle={(face) => {
             setRolledFaces((m) => ({ ...m, [primaryTrackId(activeDieItem)]: face }));

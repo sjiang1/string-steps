@@ -12,6 +12,7 @@ export type DieChoice =
   | { kind: "rhythm"; rhythmId: string }; // rhythmId must exist in dice-rhythms.json
 
 export type PracticeItem = {
+  name?: string; // the item's own title; falls back to the primary track's name
   trackChoices: string[];
   tasks: PlanTask[];
   dice: boolean; // die-enabled status (future: auto-summon the die when true)
@@ -22,6 +23,14 @@ export type PracticeItem = {
 // The track a practice item resolves to before any roll: the first in its pool.
 export function primaryTrackId(item: PracticeItem): string {
   return item.trackChoices[0];
+}
+
+// What a practice item is called: its own name when set, else its primary
+// track's name (else the raw track id for an unknown track).
+export function itemDisplayName(item: PracticeItem, tracks: Track[]): string {
+  if (item.name) return item.name;
+  const id = primaryTrackId(item);
+  return tracks.find((t) => t.id === id)?.name ?? id;
 }
 
 // The track a rolled face resolves to. Null for rhythm choices and for faces
