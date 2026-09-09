@@ -39,7 +39,7 @@ export default async function PlansPage({
   const frozen = activePlan ? await isPlanFrozen(activePlan.id) : false;
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-8 pb-24 font-sans">
+    <div className="min-h-full bg-zinc-50 p-8 pb-24 font-sans">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Plans</h1>
         <NewPlanButton sourcePlan={activePlan ?? scheduledPlan} defaultActiveFrom={defaultActive} />
