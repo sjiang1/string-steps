@@ -27,7 +27,7 @@ export default function TabBar({
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 flex">
+    <nav className="shrink-0 bg-white border-t border-zinc-200 flex">
       {tabs.map((tab) => {
         const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
         return (

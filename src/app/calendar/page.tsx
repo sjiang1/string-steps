@@ -12,7 +12,7 @@ export default async function CalendarPage() {
   const progress = await getMonthProgress(yearMonth);
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-8 font-sans">
+    <div className="min-h-full bg-zinc-50 p-8 font-sans">
       <h1 className="text-2xl font-bold mb-4">Calendar</h1>
       <CalendarGrid
         initialYear={year}

@@ -34,9 +34,12 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="h-dvh flex flex-col">
         <ServerActivityProvider>
-          <div className="flex-1 pb-16">{children}</div>
+          {/* The app owns scrolling (not the document): the body is locked to the
+              dynamic viewport and this wrapper scrolls, so the tab bar below sits
+              in normal flow — no `position: fixed` for iPad toolbars to unmoor. */}
+          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
           <TabBar activeStudent={activeStudent} otherStudent={otherStudent} />
         </ServerActivityProvider>
       </body>
