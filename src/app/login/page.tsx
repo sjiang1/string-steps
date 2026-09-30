@@ -8,7 +8,7 @@ export default async function LoginPage({ searchParams }: Props) {
   const next = params.next ?? "/";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-sky-50 p-6 font-sans">
+    <div className="min-h-full flex items-center justify-center bg-sky-50 p-6 font-sans">
       <form
         method="POST"
         action="/login/submit"
