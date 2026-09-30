@@ -33,5 +33,12 @@
     "image": "/api/img/puppy-space",
     "emoji": "🐶",
     "category": "bow-hand"
+  },
+  {
+    "id": "light-house",
+    "description": "Shoulder, chest, waist and legs point to the same direction",
+    "image": "/api/img/light-house",
+    "emoji": "🗼",
+    "category": "posture"
   }
 ]
