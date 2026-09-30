@@ -36,7 +36,7 @@
   },
   {
     "id": "light-house",
-    "description": "Shoulder, chest, waist and legs point to the same direction",
+    "description": "Shoulder, chest, waist and legs point in the same direction",
     "image": "/api/img/light-house",
     "emoji": "🗼",
     "category": "posture"
