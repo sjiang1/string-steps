@@ -43,7 +43,7 @@ export default async function Home() {
       message = "An unexpected error occurred.";
     }
     return (
-      <div className="min-h-screen bg-zinc-50 p-8 font-sans">
+      <div className="min-h-full bg-zinc-50 p-8 font-sans">
         <h1 className="text-2xl font-bold mb-1">{primary.name}&apos;s Practice</h1>
         <p className="text-zinc-500 mb-6">
           Teacher: {teacher.name} &middot; {today}
@@ -56,7 +56,7 @@ export default async function Home() {
 
   if ("dayType" in result) {
     return (
-      <div className="min-h-screen bg-zinc-50 p-8 font-sans">
+      <div className="min-h-full bg-zinc-50 p-8 font-sans">
         <h1 className="text-2xl font-bold mb-1">{primary.name}&apos;s Practice</h1>
         <p className="text-zinc-500 mb-6">
           Teacher: {teacher.name} &middot; {today}
@@ -72,7 +72,7 @@ export default async function Home() {
   const plan = result.plan;
 
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans">
+    <div className="min-h-full bg-zinc-50 font-sans">
       <div className="px-8 pt-8 pb-4">
         <h1 className="text-2xl font-bold mb-1">{primary.name}&apos;s Practice</h1>
         <p className="text-zinc-500 mb-1">

@@ -48,7 +48,7 @@ export default async function TeacherPage() {
   });
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-8 font-sans">
+    <div className="min-h-full bg-zinc-50 p-8 font-sans">
       <h1 className="text-2xl font-bold mb-1">
         👨‍🏫 {primary.name}&apos;s practice — {formatLong(window.startDate)}{" "}
         through {formatLong(window.endDate)}
