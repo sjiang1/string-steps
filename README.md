@@ -79,7 +79,7 @@ The **Calendar** tab shows each day at a glance — how much of that day's plan 
 
 ### Plans
 
-The **Plans** tab is where the week's practice is built: create a plan, add practice items with their tasks (sing / play / focus drills), give an item a pool of tracks and a die with its choice list, and choose the date it becomes active. Past plans are frozen so practice history stays intact. A new plan inherits the current plan's Get Ready checklist. Checklist changes are deliberately not editable here — see [Changing the checklist](#changing-the-checklist).
+The **Plans** tab is where the week's practice is built: create a plan, add practice items with their tasks (sing / play / focus drills), optionally give an item its own name (otherwise it is titled by its first track), give an item a pool of tracks and a die with its choice list, and choose the date it becomes active. Past plans are frozen so practice history stays intact. A new plan inherits the current plan's Get Ready checklist. Checklist changes are deliberately not editable here — see [Changing the checklist](#changing-the-checklist).
 
 ### Track Notes
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { primaryTrackId, type DieChoice, type PracticeItem, type PlanTask, type Track } from "../plans";
+import { itemDisplayName, primaryTrackId, type DieChoice, type PracticeItem, type PlanTask, type Track } from "../plans";
 import { rhythmById, rhythms } from "../rhythms";
 import TaskChip from "./TaskChip";
 import TeacherNoteField from "./TeacherNoteField";
@@ -46,6 +46,8 @@ export default function PracticeItemRow({
   onRemove: () => void;
 }) {
   const track = tracks.find((t) => t.id === primaryTrackId(item));
+  // Draft of the item's own name; committed to the plan on blur.
+  const [nameDraft, setNameDraft] = useState(item.name ?? "");
   const trackName = (id: string) => tracks.find((t) => t.id === id)?.name ?? id;
   const [addingDieChoice, setAddingDieChoice] = useState(false);
 
@@ -89,7 +91,7 @@ export default function PracticeItemRow({
           ⠿
         </button>
         <div className="font-semibold flex-1 flex items-center gap-2">
-          <span>{track?.name ?? primaryTrackId(item)}</span>
+          <h3>{itemDisplayName(item, tracks)}</h3>
           {track && (
             <span className="text-xs bg-zinc-100 text-zinc-500 rounded px-1.5 py-0.5 font-normal">
               {track.type}
@@ -107,6 +109,20 @@ export default function PracticeItemRow({
       </div>
 
       <div className="p-3 space-y-2">
+      <input
+        type="text"
+        aria-label="Item name"
+        placeholder="Item name (optional — defaults to the first track)"
+        value={nameDraft}
+        disabled={disabled}
+        onChange={(e) => setNameDraft(e.target.value)}
+        onBlur={() => {
+          const trimmed = nameDraft.trim();
+          setNameDraft(trimmed);
+          if (trimmed !== (item.name ?? "")) onChange({ ...item, name: trimmed === "" ? undefined : trimmed });
+        }}
+        className="w-full rounded border border-zinc-200 px-2 py-1 text-sm"
+      />
       <div className="flex flex-wrap items-center gap-2">
         {item.trackChoices.map((id) => (
           <span

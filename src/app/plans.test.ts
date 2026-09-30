@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TEST_PRIMARY as PRIMARY, TEST_LINKED as LINKED } from "./test-support/people";
-import { primaryTrackId, rolledTrackId, type PracticeItem } from "./plans";
+import { itemDisplayName, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
 
 async function loadPlans() {
   const mod = await import("./plans");
@@ -20,6 +20,40 @@ describe("primaryTrackId", () => {
     expect(
       primaryTrackId({ trackChoices: ["twinkle", "minuet"], tasks: [], dice: false }),
     ).toBe("twinkle");
+  });
+});
+
+describe("itemDisplayName", () => {
+  const tracks: Track[] = [{ id: "twinkle", name: "Twinkle A", type: "reference", file: null }];
+
+  it("prefers the item's own name when set", () => {
+    expect(
+      itemDisplayName({ name: "Twinkle Twinkle", trackChoices: ["twinkle"], tasks: [], dice: false }, tracks),
+    ).toBe("Twinkle Twinkle");
+  });
+
+  it("falls back to the primary track's name when unnamed", () => {
+    expect(itemDisplayName({ trackChoices: ["twinkle"], tasks: [], dice: false }, tracks)).toBe(
+      "Twinkle A",
+    );
+  });
+
+  it("trims the item's own name", () => {
+    expect(
+      itemDisplayName({ name: "  Twinkle Twinkle ", trackChoices: ["twinkle"], tasks: [], dice: false }, tracks),
+    ).toBe("Twinkle Twinkle");
+  });
+
+  it("falls back to the primary track's name when the name is blank or whitespace-only", () => {
+    for (const name of ["", "   "]) {
+      expect(itemDisplayName({ name, trackChoices: ["twinkle"], tasks: [], dice: false }, tracks)).toBe(
+        "Twinkle A",
+      );
+    }
+  });
+
+  it("falls back to the raw track id when the track is unknown", () => {
+    expect(itemDisplayName({ trackChoices: ["ghost"], tasks: [], dice: false }, tracks)).toBe("ghost");
   });
 });
 
