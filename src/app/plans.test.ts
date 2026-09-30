@@ -38,6 +38,20 @@ describe("itemDisplayName", () => {
     );
   });
 
+  it("trims the item's own name", () => {
+    expect(
+      itemDisplayName({ name: "  Twinkle Twinkle ", trackChoices: ["twinkle"], tasks: [], dice: false }, tracks),
+    ).toBe("Twinkle Twinkle");
+  });
+
+  it("falls back to the primary track's name when the name is blank or whitespace-only", () => {
+    for (const name of ["", "   "]) {
+      expect(itemDisplayName({ name, trackChoices: ["twinkle"], tasks: [], dice: false }, tracks)).toBe(
+        "Twinkle A",
+      );
+    }
+  });
+
   it("falls back to the raw track id when the track is unknown", () => {
     expect(itemDisplayName({ trackChoices: ["ghost"], tasks: [], dice: false }, tracks)).toBe("ghost");
   });

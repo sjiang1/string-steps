@@ -25,10 +25,17 @@ export function primaryTrackId(item: PracticeItem): string {
   return item.trackChoices[0];
 }
 
+// The item's own name, trimmed; undefined when unset or blank. The editor never
+// saves a blank name, but plans can also be hand-edited in Upstash.
+export function itemOwnName(item: PracticeItem): string | undefined {
+  return item.name?.trim() || undefined;
+}
+
 // What a practice item is called: its own name when set, else its primary
 // track's name (else the raw track id for an unknown track).
 export function itemDisplayName(item: PracticeItem, tracks: Track[]): string {
-  if (item.name) return item.name;
+  const ownName = itemOwnName(item);
+  if (ownName) return ownName;
   const id = primaryTrackId(item);
   return tracks.find((t) => t.id === id)?.name ?? id;
 }

@@ -122,6 +122,12 @@ describe("PracticeTasksList item names", () => {
     expect(screen.getByText("♪ Track B")).toBeTruthy();
   });
 
+  it("treats a whitespace-only name as unnamed (hand-edited plan data)", () => {
+    renderList([{ ...DIE_ITEM, name: "   " }]);
+    expect(screen.getByRole("heading", { name: "Track A" })).toBeTruthy();
+    expect(screen.queryByText("♪ Track A")).toBeNull();
+  });
+
   it("omits the secondary track line when it would repeat the item name", () => {
     renderList([{ ...DIE_ITEM, name: "Track A" }]);
     expect(screen.queryByText("♪ Track A")).toBeNull();

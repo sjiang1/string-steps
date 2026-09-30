@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import PracticeDie, { storedDieFace } from "./PracticeDie";
 import TaskList, { TaskTypeDef } from "./TaskList";
 import TrackNote from "./TrackNote";
-import { itemDisplayName, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
+import { itemDisplayName, itemOwnName, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
 import { rhythmById } from "./rhythms";
 import type { Student } from "./students";
 
@@ -55,8 +55,9 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
           // Unnamed items are titled by whatever track they currently resolve
           // to; named items keep their own title and show the track beneath.
           const trackName = track?.name ?? trackId;
-          const title = item.name ?? trackName;
-          const showTrackLine = item.name !== undefined && trackName !== title;
+          const ownName = itemOwnName(item);
+          const title = ownName ?? trackName;
+          const showTrackLine = ownName !== undefined && trackName !== title;
           return (
             <li key={itemKey} className="rounded-lg border bg-white p-4">
               <div className="flex items-center gap-2 mb-1">
