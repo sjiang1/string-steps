@@ -58,13 +58,22 @@ Current example (the committed demo seed):
 - 🐶 Space for a puppy in the bow hold
 - 🗼 Shoulder, chest, waist and legs point to the same direction
 
+#### Changing the checklist
+
+**Why there's no in-app editor:** the checklist changes rarely — the teacher adjusts it occasionally as the student's technique progresses — so the Plans editor deliberately leaves it out to stay small. New plans inherit the current checklist, so most weeks need no checklist work at all. When it does change:
+
+1. **New item?** Add an entry to [data/checklist-items.json](data/checklist-items.json) and deploy. Optionally add a photo: drop it in `public/images/checklist/`, point `image` at it, run `scripts/migrate-checklist-images.mjs --execute`, then `scripts/rewrite-checklist-seed.mjs`.
+2. **Turn items on or off for a plan:** in the Upstash console, edit the active plan's `checklist` array in `plans:list` (a list of item `id`s). Order within the array doesn't matter; rows are grouped by category.
+
+Ids not in the catalog are silently skipped, so it's safe to add an id to a plan before the code that defines it is deployed.
+
 ### Calendar
 
 The **Calendar** tab shows each day at a glance — how much of that day's plan was completed, plus class days and sick days — and lets the student open any day to practice it.
 
 ### Plans
 
-The **Plans** tab is where the week's practice is built: create a plan, add practice items with their tasks (sing / play / focus drills), give an item a pool of tracks and a die with its choice list, set the Get Ready checklist, and choose the date it becomes active. Past plans are frozen so practice history stays intact.
+The **Plans** tab is where the week's practice is built: create a plan, add practice items with their tasks (sing / play / focus drills), give an item a pool of tracks and a die with its choice list, and choose the date it becomes active. Past plans are frozen so practice history stays intact. A new plan inherits the current plan's Get Ready checklist. Checklist changes are deliberately not editable here — see [Changing the checklist](#changing-the-checklist).
 
 ### Track Notes
 
