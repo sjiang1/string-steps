@@ -38,7 +38,7 @@ Each entry is:
 |---|---|
 | `id` | stable key; also the `/api/img/<id>` and `checklist:blobs` key |
 | `description` | the reminder text shown under the icon |
-| `category` | `violin-hand` \| `bow-hand` \| `other` — groups items into a labeled row |
+| `category` | `posture` \| `violin-hand` \| `bow-hand` \| `other` — groups items into a labeled row (in that order; unknown values fall into `other`) |
 | `emoji` | shown **when the item has no image** (see below) |
 | `image` | seed path; the live image is served from Vercel Blob via `/api/img/<id>` |
 
@@ -56,6 +56,7 @@ Current example (the committed demo seed):
 - ☝️ First finger down at the edge of the tape
 - 🤗 Two hugger fingers on the bow
 - 🐶 Space for a puppy in the bow hold
+- 🗼 Shoulder, chest, waist and legs point to the same direction
 
 ### Calendar
 

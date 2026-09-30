@@ -1,6 +1,5 @@
 import Image from "next/image";
 
-type Category = "violin-hand" | "bow-hand" | "other";
 
 interface ChecklistItem {
   id: string;
@@ -17,16 +16,23 @@ interface ChecklistItem {
   category: string;
 }
 
-const CATEGORY_ORDER: Category[] = ["violin-hand", "bow-hand", "other"];
-
-const CATEGORY_LABEL: Record<Category, string> = {
+/**
+ * The single source of known categories: key order is the row order on the page,
+ * and any category not listed here falls into "other".
+ */
+const CATEGORY_LABEL = {
+  posture: "Posture",
   "violin-hand": "Violin hand",
   "bow-hand": "Bow hand",
   other: "Other",
-};
+} as const;
+
+type Category = keyof typeof CATEGORY_LABEL;
+
+const CATEGORY_ORDER = Object.keys(CATEGORY_LABEL) as Category[];
 
 function normalizeCategory(category: string): Category {
-  return category === "violin-hand" || category === "bow-hand" ? category : "other";
+  return Object.hasOwn(CATEGORY_LABEL, category) ? (category as Category) : "other";
 }
 
 export default function GetReadyChecklist({ items }: { items: ChecklistItem[] }) {
