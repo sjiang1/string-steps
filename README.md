@@ -62,8 +62,14 @@ Current example (the committed demo seed):
 
 **Why there's no in-app editor:** the checklist changes rarely — the teacher adjusts it occasionally as the student's technique progresses — so the Plans editor deliberately leaves it out to stay small. New plans inherit the current checklist, so most weeks need no checklist work at all. When it does change:
 
-1. **New item?** Add an entry to [data/checklist-items.json](data/checklist-items.json) and deploy. Optionally add a photo: drop it in `public/images/checklist/`, point `image` at it, run `scripts/migrate-checklist-images.mjs --execute`, then `scripts/rewrite-checklist-seed.mjs`.
-2. **Turn items on or off for a plan:** in the Upstash console, edit the active plan's `checklist` array in `plans:list` (a list of item `id`s). Order within the array doesn't matter; rows are grouped by category.
+1. **New item?** Add an entry to [data/checklist-items.json](data/checklist-items.json) and deploy. Optionally add a photo: drop it in `public/images/checklist/`, point `image` at it, then upload it and repoint `image` back to `/api/img/<id>`:
+
+   ```bash
+   node --env-file=.env.local scripts/migrate-checklist-images.mjs            # dry run
+   node --env-file=.env.local scripts/migrate-checklist-images.mjs --execute  # upload to Blob + write checklist:blobs
+   node scripts/rewrite-checklist-seed.mjs
+   ```
+2. **Turn items on or off for a plan:** in the Upstash console, edit the active plan's `checklist` array in `plans:list` (a list of item `id`s). The array order sets the left-to-right order within each row; the rows themselves always appear in category order (Posture, Violin hand, Bow hand, Other).
 
 Ids not in the catalog are silently skipped, so it's safe to add an id to a plan before the code that defines it is deployed.
 
