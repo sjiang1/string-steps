@@ -63,6 +63,7 @@ export default async function TeacherPage() {
         report={report}
         studentName={primary.name}
         teacherName={teacher.name}
+        parentName={primary.parentName}
       />
     </div>
   );

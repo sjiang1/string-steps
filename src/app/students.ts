@@ -4,6 +4,8 @@ export type Student = {
   emoji: string;
   kind: "primary" | "linked";
   linkedTo?: string;
+  /** Primary student only: signs the teacher email alongside the student. */
+  parentName?: string;
 };
 
 export function findPrimary(students: Student[]): Student {
