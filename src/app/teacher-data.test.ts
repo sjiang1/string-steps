@@ -363,4 +363,24 @@ describe("composeTeacherEmail", () => {
       ].join("\n"),
     );
   });
+
+  it("signs off with the parent and student names when a parent name is set", () => {
+    const out = composeTeacherEmail({
+      report,
+      selectedKeys: new Set(),
+      ...names,
+      parentName: "Mama Bear",
+    });
+    expect(out.endsWith("Thanks!\n— Mama Bear & Xiami")).toBe(true);
+  });
+
+  it("trims the parent name and ignores a blank or whitespace-only one", () => {
+    const signOff = (parentName: string) =>
+      composeTeacherEmail({ report, selectedKeys: new Set(), ...names, parentName })
+        .split("\n")
+        .at(-1);
+    expect(signOff("  Mama Bear ")).toBe("— Mama Bear & Xiami");
+    expect(signOff("")).toBe("— Xiami");
+    expect(signOff("   ")).toBe("— Xiami");
+  });
 });

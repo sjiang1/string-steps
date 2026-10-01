@@ -89,6 +89,8 @@ While practicing, the student can add a short note to any track (how it went, wh
 
 The **Teacher** tab gives the teacher a read-only summary of recent practice — the tracks worked on and any notes — covering the stretch since the last class day.
 
+Tick notes to build an email draft for the teacher and copy it to the clipboard. It signs off with the student's name, or with both names (`— Mama Bear & Mozart X`) when the primary student in `students:list` has a `"parentName"`.
+
 ### Linked Accounts (opt-in)
 
 By default a deployment shows a **single student** — no account switcher, no "Practicing as …" banner.

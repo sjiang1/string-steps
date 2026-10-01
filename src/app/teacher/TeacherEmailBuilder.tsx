@@ -12,10 +12,12 @@ export default function TeacherEmailBuilder({
   report,
   studentName,
   teacherName,
+  parentName,
 }: {
   report: TrackReport[];
   studentName: string;
   teacherName: string;
+  parentName?: string;
 }) {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState<"idle" | "ok" | "fail">("idle");
@@ -31,8 +33,8 @@ export default function TeacherEmailBuilder({
   }
 
   const draft = useMemo(
-    () => composeTeacherEmail({ report, selectedKeys, studentName, teacherName }),
-    [report, selectedKeys, studentName, teacherName],
+    () => composeTeacherEmail({ report, selectedKeys, studentName, teacherName, parentName }),
+    [report, selectedKeys, studentName, teacherName, parentName],
   );
 
   // Flash the "Copied!" confirmation, then return to idle so it stays transient.

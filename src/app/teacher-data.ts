@@ -162,6 +162,8 @@ export type ComposeInput = {
   selectedKeys: Set<string>;
   studentName: string;
   teacherName: string;
+  /** Optional; when set, the sign-off reads "— {parentName} & {studentName}". */
+  parentName?: string;
 };
 
 export function noteKey(trackId: string, date: string): string {
@@ -169,7 +171,7 @@ export function noteKey(trackId: string, date: string): string {
 }
 
 export function composeTeacherEmail(input: ComposeInput): string {
-  const { report, selectedKeys, studentName, teacherName } = input;
+  const { report, selectedKeys, studentName, teacherName, parentName } = input;
   const sections: string[] = [`Hi ${teacherName},`];
 
   const blocks: string[] = [];
@@ -197,6 +199,8 @@ export function composeTeacherEmail(input: ComposeInput): string {
     sections.push(...blocks);
   }
 
-  sections.push(`Thanks!\n— ${studentName}`);
+  const parent = parentName?.trim();
+  const signers = parent ? `${parent} & ${studentName}` : studentName;
+  sections.push(`Thanks!\n— ${signers}`);
   return sections.join("\n\n");
 }
