@@ -34,6 +34,7 @@ export default function NewPlanButton({
               tasks: it.tasks.map((t) => ({ ...t })),
               dice: it.dice,
               teacherNote: it.teacherNote,
+              speed: it.speed,
             })),
             checklist: [...sourcePlan.checklist],
           }
