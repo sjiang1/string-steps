@@ -18,7 +18,10 @@ export type PracticeItem = {
   dice: boolean; // die-enabled status (future: auto-summon the die when true)
   dieChoices?: DieChoice[]; // required 1–6 entries when dice is true; face N = index N-1
   teacherNote?: string;
+  speed?: number; // playback rate for the item's track; one of PLAYBACK_SPEEDS, unset = 1
 };
+
+export const PLAYBACK_SPEEDS = [0.5, 0.75, 1] as const;
 
 // The track a practice item resolves to before any roll: the first in its pool.
 export function primaryTrackId(item: PracticeItem): string {
@@ -38,6 +41,18 @@ export function itemDisplayName(item: PracticeItem, tracks: Track[]): string {
   if (ownName) return ownName;
   const id = primaryTrackId(item);
   return tracks.find((t) => t.id === id)?.name ?? id;
+}
+
+// The playback rate for an item's track, or null when the item gets no speed
+// choice: only a single audio track with a "play with track" task does. A speed
+// outside PLAYBACK_SPEEDS (e.g. hand-edited in Upstash) falls back to 1.
+export function itemPlaybackSpeed(item: PracticeItem, tracks: Track[]): number | null {
+  if (!item.tasks.some((t) => t.type === "playWithTrack")) return null;
+  if (item.trackChoices.length !== 1) return null;
+  const track = tracks.find((t) => t.id === item.trackChoices[0]);
+  if (track?.type !== "audio") return null;
+  const speed = item.speed ?? 1;
+  return (PLAYBACK_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
 }
 
 // The track a rolled face resolves to. Null for rhythm choices and for faces

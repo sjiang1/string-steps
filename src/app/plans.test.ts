@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TEST_PRIMARY as PRIMARY, TEST_LINKED as LINKED } from "./test-support/people";
-import { itemDisplayName, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
+import { itemDisplayName, itemPlaybackSpeed, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
 
 async function loadPlans() {
   const mod = await import("./plans");
@@ -85,6 +85,46 @@ describe("rolledTrackId", () => {
 
   it("returns null when the item has no die choices", () => {
     expect(rolledTrackId({ trackChoices: ["x"], tasks: [], dice: false }, 1)).toBeNull();
+  });
+});
+
+describe("itemPlaybackSpeed", () => {
+  const SPEED_TRACKS: Track[] = [
+    { id: "song", name: "Song", type: "audio", file: "/song.mp3" },
+    { id: "song2", name: "Song 2", type: "audio", file: "/song2.mp3" },
+    { id: "clip", name: "Clip", type: "video", file: "/clip.mp4" },
+  ];
+  const ELIGIBLE: PracticeItem = {
+    trackChoices: ["song"],
+    tasks: [{ type: "playWithTrack", count: 1 }],
+    dice: false,
+  };
+
+  it("returns the item's speed for a single audio track with a play-with-track task", () => {
+    expect(itemPlaybackSpeed({ ...ELIGIBLE, speed: 0.75 }, SPEED_TRACKS)).toBe(0.75);
+  });
+
+  it("defaults an eligible item without a speed to 1", () => {
+    expect(itemPlaybackSpeed(ELIGIBLE, SPEED_TRACKS)).toBe(1);
+  });
+
+  it("returns null without a play-with-track task", () => {
+    const item = { ...ELIGIBLE, speed: 0.5, tasks: [{ type: "playWithoutTrack", count: 1 }] };
+    expect(itemPlaybackSpeed(item, SPEED_TRACKS)).toBeNull();
+  });
+
+  it("returns null when the item has more than one track", () => {
+    const item = { ...ELIGIBLE, speed: 0.5, trackChoices: ["song", "song2"] };
+    expect(itemPlaybackSpeed(item, SPEED_TRACKS)).toBeNull();
+  });
+
+  it("returns null for a video track", () => {
+    const item = { ...ELIGIBLE, speed: 0.5, trackChoices: ["clip"] };
+    expect(itemPlaybackSpeed(item, SPEED_TRACKS)).toBeNull();
+  });
+
+  it("treats a speed outside the offered options as 1", () => {
+    expect(itemPlaybackSpeed({ ...ELIGIBLE, speed: 3 }, SPEED_TRACKS)).toBe(1);
   });
 });
 

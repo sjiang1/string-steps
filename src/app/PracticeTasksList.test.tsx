@@ -133,3 +133,50 @@ describe("PracticeTasksList item names", () => {
     expect(screen.queryByText("♪ Track A")).toBeNull();
   });
 });
+
+describe("PracticeTasksList playback speed", () => {
+  const SONG: Track = { id: "song", name: "Song", type: "audio", file: "/song.mp3" };
+  const SLOW_ITEM: PracticeItem = {
+    trackChoices: ["song"],
+    tasks: [{ type: "playWithTrack", count: 1 }],
+    dice: false,
+    speed: 0.75,
+  };
+
+  function renderSpeedList(item: PracticeItem) {
+    return render(
+      <PracticeTasksList
+        items={[item]}
+        tracks={[SONG]}
+        taskTypes={[]}
+        doneTasks={[]}
+        notesByTrack={{}}
+        activeStudent={LINKED}
+      />,
+    );
+  }
+
+  it("plays the audio at the item's speed", () => {
+    const { container } = renderSpeedList(SLOW_ITEM);
+    expect(container.querySelector("audio")!.playbackRate).toBe(0.75);
+  });
+
+  it("keeps the speed after the audio reloads", () => {
+    const { container } = renderSpeedList(SLOW_ITEM);
+    const audio = container.querySelector("audio")!;
+    audio.playbackRate = 1; // what a browser does when the media (re)loads
+    fireEvent(audio, new Event("loadedmetadata"));
+    expect(audio.playbackRate).toBe(0.75);
+  });
+
+  it("shows a slow-speed badge", () => {
+    renderSpeedList(SLOW_ITEM);
+    expect(screen.getByText("🐢 0.75×")).toBeTruthy();
+  });
+
+  it("plays at normal speed with no badge when the item gets no speed choice", () => {
+    const { container } = renderSpeedList({ ...SLOW_ITEM, tasks: [{ type: "sing", count: 1 }] });
+    expect(container.querySelector("audio")!.playbackRate).toBe(1);
+    expect(screen.queryByText(/🐢/)).toBeNull();
+  });
+});

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { itemDisplayName, primaryTrackId, type DieChoice, type PracticeItem, type PlanTask, type Track } from "../plans";
+import { itemDisplayName, itemPlaybackSpeed, PLAYBACK_SPEEDS, primaryTrackId, type DieChoice, type PracticeItem, type PlanTask, type Track } from "../plans";
 import { rhythmById, rhythms } from "../rhythms";
 import TaskChip from "./TaskChip";
 import TeacherNoteField from "./TeacherNoteField";
@@ -52,6 +52,7 @@ export default function PracticeItemRow({
   const [addingDieChoice, setAddingDieChoice] = useState(false);
 
   const dieChoices = item.dieChoices ?? [];
+  const speed = itemPlaybackSpeed(item, tracks);
 
   function choiceLabel(choice: DieChoice): string {
     if (choice.kind === "track") return trackName(choice.trackId);
@@ -205,6 +206,25 @@ export default function PracticeItemRow({
             </button>
           ))}
       </div>
+
+      {speed !== null && (
+        <div role="group" aria-label="Playback speed" className="flex items-center gap-2 text-sm">
+          <span>Speed</span>
+          {PLAYBACK_SPEEDS.map((s) => (
+            <button
+              key={s}
+              onClick={() => onChange({ ...item, speed: s === 1 ? undefined : s })}
+              disabled={disabled}
+              aria-pressed={speed === s}
+              className={`rounded-full px-2 py-1 ${
+                speed === s ? "bg-sky-600 text-white" : "bg-zinc-100 text-zinc-700"
+              } disabled:opacity-50`}
+            >
+              {s}×
+            </button>
+          ))}
+        </div>
+      )}
 
       <label className="flex items-center gap-2 text-sm">
         <input
