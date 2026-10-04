@@ -4,9 +4,28 @@ import { useEffect, useState } from "react";
 import PracticeDie, { storedDieFace } from "./PracticeDie";
 import TaskList, { TaskTypeDef } from "./TaskList";
 import TrackNote from "./TrackNote";
-import { itemDisplayName, itemOwnName, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
+import { itemDisplayName, itemOwnName, itemPlaybackSpeed, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
 import { rhythmById } from "./rhythms";
 import type { Student } from "./students";
+
+// Browsers reset playbackRate whenever the media (re)loads, so re-apply the
+// speed on every loadedmetadata, not just on mount.
+function SpeedAudio({ src, speed }: { src: string; speed: number }) {
+  const apply = (el: HTMLAudioElement | null) => {
+    if (!el) return;
+    el.defaultPlaybackRate = speed;
+    el.playbackRate = speed;
+  };
+  return (
+    <audio
+      ref={apply}
+      controls
+      className="w-full mb-2"
+      src={src}
+      onLoadedMetadata={(e) => apply(e.currentTarget)}
+    />
+  );
+}
 
 interface Props {
   items: PracticeItem[];
@@ -58,6 +77,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
           const ownName = itemOwnName(item);
           const title = ownName ?? trackName;
           const showTrackLine = ownName !== undefined && trackName !== title;
+          const speed = itemPlaybackSpeed(item, tracks) ?? 1;
           return (
             <li key={itemKey} className="rounded-lg border bg-white p-4">
               <div className="flex items-center gap-2 mb-1">
@@ -65,6 +85,11 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
                 {track?.type === "video" && (
                   <span className="text-xs bg-zinc-100 text-zinc-500 rounded px-1.5 py-0.5">
                     video
+                  </span>
+                )}
+                {speed !== 1 && (
+                  <span className="text-xs bg-emerald-100 text-emerald-800 rounded px-1.5 py-0.5">
+                    🐢 {speed}×
                   </span>
                 )}
                 {item.dice && (
@@ -97,7 +122,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
                 initialDone={doneTasks}
               />
               {track?.type === "audio" && track.file && (
-                <audio controls className="w-full mb-2" src={track.file} />
+                <SpeedAudio src={track.file} speed={speed} />
               )}
               {track?.type === "video" && track.file && (
                 <video controls className="max-h-[400px] rounded mb-2" src={track.file} />
