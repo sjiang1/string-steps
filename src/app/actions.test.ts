@@ -176,6 +176,20 @@ describe("getMonthProgress", () => {
     expect(result["2026-04-10"]).toEqual({ type: "practice", done: 2, total: 2 });
   });
 
+  it("doesn't count a task with more taps than its target, matching the task list's ✅", async () => {
+    setupScheduleData({ "2026-04-10": "1" });
+    setupPlansData(TEST_PLANS);
+    // demo-b's target was lowered to 1 after 2 reps were tapped: the task list
+    // shows 2/1 without ✅, so the calendar mustn't count it either.
+    const data = {
+      "2026-04-10": ["demo-b-playWithoutTrack-0", "demo-b-playWithoutTrack-1"],
+    };
+    writeFileSync(tempFile, JSON.stringify(data));
+    const { getMonthProgress } = await loadActions();
+    const result = await getMonthProgress("2026-04");
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 0, total: TEST_PLAN_TASK_TOTAL });
+  });
+
   it("counts a track-pool task done when any one track in the pool finishes it", async () => {
     setupScheduleData({ "2026-04-10": "pool" });
     setupPlansData([

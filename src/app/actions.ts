@@ -283,16 +283,18 @@ export async function getMonthProgress(
   const plans = await getPlans();
   const result: Record<string, MonthProgressEntry> = {};
 
-  // Each task counts once, whatever its repetition count. It's done once all
-  // its repetitions are tapped on any one track in the item's pool (a 🎲 roll
-  // records taps under the rolled track).
+  // Each task counts once, whatever its repetition count. It's done when the
+  // taps on any one track in the item's pool (a 🎲 roll records taps under the
+  // rolled track) exactly match its count — the same point TaskList shows ✅.
+  // Strict equality: a target lowered after tapping leaves extra taps, and the
+  // task list doesn't show ✅ for those.
   function planProgress(plan: Plan, done: string[]): { done: number; total: number } {
     let finished = 0;
     let total = 0;
     for (const item of plan.items) {
       for (const task of item.tasks) {
         total++;
-        if (item.trackChoices.some((id) => doneCountForTask(id, task, done) >= task.count)) {
+        if (item.trackChoices.some((id) => doneCountForTask(id, task, done) === task.count)) {
           finished++;
         }
       }
