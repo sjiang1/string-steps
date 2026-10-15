@@ -143,9 +143,10 @@ describe("toggleTask", () => {
 });
 
 describe("getMonthProgress", () => {
-  it("returns practice progress for days with plans", async () => {
+  it("counts each task once, done only when all its repetitions are", async () => {
     setupScheduleData({ "2026-04-10": "1" });
     setupPlansData(TEST_PLANS);
+    // demo-a's playWithTrack wants 2 reps and has 1; demo-b's single rep is done.
     const data = {
       "2026-04-10": ["demo-a-playWithTrack-0", "demo-b-playWithoutTrack-0"],
     };
@@ -154,9 +155,64 @@ describe("getMonthProgress", () => {
     const result = await getMonthProgress("2026-04");
     expect(result["2026-04-10"]).toEqual({
       type: "practice",
-      done: 2,
+      done: 1,
       total: TEST_PLAN_TASK_TOTAL,
     });
+  });
+
+  it("counts a task done once all its repetitions are tapped", async () => {
+    setupScheduleData({ "2026-04-10": "1" });
+    setupPlansData(TEST_PLANS);
+    const data = {
+      "2026-04-10": [
+        "demo-a-playWithTrack-0",
+        "demo-a-playWithTrack-1",
+        "demo-b-playWithoutTrack-0",
+      ],
+    };
+    writeFileSync(tempFile, JSON.stringify(data));
+    const { getMonthProgress } = await loadActions();
+    const result = await getMonthProgress("2026-04");
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 2, total: 2 });
+  });
+
+  it("counts a track-pool task done when any one track in the pool finishes it", async () => {
+    setupScheduleData({ "2026-04-10": "pool" });
+    setupPlansData([
+      {
+        id: "pool",
+        createdDate: "2026-04-07",
+        items: [
+          {
+            trackChoices: ["demo-a", "demo-b"],
+            tasks: [
+              { type: "playWithTrack", count: 2 },
+              { type: "sing", count: 2 },
+            ],
+            dice: true,
+            dieChoices: [
+              { kind: "track", trackId: "demo-a" },
+              { kind: "track", trackId: "demo-b" },
+            ],
+          },
+        ],
+        checklist: [],
+      },
+    ]);
+    // playWithTrack finished on the rolled track demo-b; sing split 1+1 across
+    // the pool, so no single track finished it.
+    const data = {
+      "2026-04-10": [
+        "demo-b-playWithTrack-0",
+        "demo-b-playWithTrack-1",
+        "demo-a-sing-0",
+        "demo-b-sing-0",
+      ],
+    };
+    writeFileSync(tempFile, JSON.stringify(data));
+    const { getMonthProgress } = await loadActions();
+    const result = await getMonthProgress("2026-04");
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 1, total: 2 });
   });
 
   it("returns non-practice entry for group class days", async () => {
@@ -201,7 +257,7 @@ describe("getMonthProgress", () => {
     writeFileSync(
       tempFile,
       JSON.stringify({
-        [`2026-04-13:${LINKED.id}`]: ["demo-a-playWithTrack-0"],
+        [`2026-04-13:${LINKED.id}`]: ["demo-b-playWithoutTrack-0"],
       }),
     );
     cookieState.value = LINKED.id;

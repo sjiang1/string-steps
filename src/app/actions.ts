@@ -16,6 +16,7 @@ import { isClassDay, isNonPracticeDay } from "./day-types";
 import { todayLocal } from "./today";
 import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-activation";
 import { doneLogId, findPrimary, type Student } from "./students";
+import { doneCountForTask } from "./task-keys";
 
 const useRedis = !!process.env.KV_REST_API_URL;
 const redis = useRedis
@@ -282,11 +283,21 @@ export async function getMonthProgress(
   const plans = await getPlans();
   const result: Record<string, MonthProgressEntry> = {};
 
-  function planTaskTotal(plan: Plan): number {
-    return plan.items.reduce(
-      (sum, item) => sum + item.tasks.reduce((s, t) => s + t.count, 0),
-      0,
-    );
+  // Each task counts once, whatever its repetition count. It's done once all
+  // its repetitions are tapped on any one track in the item's pool (a 🎲 roll
+  // records taps under the rolled track).
+  function planProgress(plan: Plan, done: string[]): { done: number; total: number } {
+    let finished = 0;
+    let total = 0;
+    for (const item of plan.items) {
+      for (const task of item.tasks) {
+        total++;
+        if (item.trackChoices.some((id) => doneCountForTask(id, task, done) >= task.count)) {
+          finished++;
+        }
+      }
+    }
+    return { done: finished, total };
   }
 
   for (const [date, value] of Object.entries(schedule)) {
@@ -300,11 +311,7 @@ export async function getMonthProgress(
           : null;
         if (fallbackPlan) {
           const doneTasks = await getDoneTasks(date, student);
-          result[date] = {
-            type: "practice",
-            done: doneTasks.length,
-            total: planTaskTotal(fallbackPlan),
-          };
+          result[date] = { type: "practice", ...planProgress(fallbackPlan, doneTasks) };
           continue;
         }
       }
@@ -316,7 +323,7 @@ export async function getMonthProgress(
     if (!plan) continue;
 
     const doneTasks = await getDoneTasks(date, student);
-    result[date] = { type: "practice", done: doneTasks.length, total: planTaskTotal(plan) };
+    result[date] = { type: "practice", ...planProgress(plan, doneTasks) };
   }
 
   return result;
