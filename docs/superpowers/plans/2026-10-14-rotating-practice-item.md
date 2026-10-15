@@ -182,6 +182,37 @@ describe("suggestTracks", () => {
     ];
     expect(suggestTracks(FOUR, history)).toEqual(["p3", "p4"]);
   });
+
+  it("counts a track finished in a normal item the day before the rotation began", () => {
+    const playTwice: PlanTask[] = [{ type: "playWithTrack", count: 2 }];
+    const day1Plan: Plan = {
+      id: "1",
+      createdDate: "2026-10-01",
+      items: [{ trackChoices: ["p1"], tasks: playTwice, dice: false }],
+      checklist: [],
+    };
+    const pair = item(["p1", "p2"], 1, [{ type: "sing", count: 1 }]);
+    // Judged by day 1's normal item (play ×2), not today's rotating tasks (sing).
+    const history: HistoryDay[] = [
+      { date: "2026-10-01", done: fullKeys(["p1"], playTwice), plan: day1Plan },
+    ];
+    expect(suggestTracks(pair, history)).toEqual(["p2"]);
+  });
+
+  it("skips a track that a normal item also finishes daily (accepted trade-off)", () => {
+    const plan: Plan = {
+      id: "1",
+      createdDate: "2026-10-01",
+      items: [{ trackChoices: ["p1"], tasks: TASKS, dice: false }, FOUR],
+      checklist: [],
+    };
+    // p1 is finished every day by its normal item, so it always looks just practiced.
+    const history: HistoryDay[] = [
+      { date: "2026-10-02", done: fullKeys(["p1", "p4"]), plan },
+      { date: "2026-10-01", done: fullKeys(["p1", "p2", "p3"]), plan },
+    ];
+    expect(suggestTracks(FOUR, history)).toEqual(["p2", "p3"]);
+  });
 });
 
 describe("lastFullyDoneDate", () => {

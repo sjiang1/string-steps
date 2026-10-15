@@ -48,9 +48,12 @@ they were last fully practiced. It generalizes to any N of M (3 of 6, 1 of 5…)
 A pure function, e.g. `suggestTracks(item, log, today, studentId): string[]`:
 
 1. For each track in the pool, find the most recent date **strictly before
-   today** on which the student finished every repetition of every task in the
-   item's task list for that track (via `doneCountForTask` in
-   `src/app/task-keys.ts`).
+   today** on which the student finished every repetition of every task
+   **that day's plan** asked for on that track (via `doneCountForTask` in
+   `src/app/task-keys.ts`). "That day's tasks" = the first item in the plan
+   scheduled that day whose `trackChoices` contains the track; if there is no
+   such item (no plan that day, or the track wasn't in it), use today's item's
+   tasks.
 2. Sort tracks by that date, oldest first; never-finished tracks come first;
    ties keep pool order.
 3. Return the first `perDay`.
@@ -64,6 +67,20 @@ Properties:
 - **Self-correcting:** if the student plays a non-suggested track, that track
   goes to the back of the line and the skipped one is suggested next time.
 - **Per student:** a linked account has its own log, so its own rotation.
+- **Judged as assigned:** a past day counts if the track got what *that day*
+  asked for. A task-list change in a new plan (e.g. adding "sing", or raising
+  play ×2 to ×4) doesn't restart the rotation.
+- **Track, not item:** any finished practice of a track counts toward its turn,
+  whichever item it came from: a normal item, a die item that rolled it, or an
+  older plan. Example: day 1 has a normal item for piece 1; day 2 replaces it
+  with a rotating item for pieces 1 + 2 (1 per day). If piece 1 was finished on
+  day 1, day 2 suggests piece 2.
+- **Accepted trade-off:** if a plan has a track both as a normal daily item and
+  inside a rotation, the normal item finishes it every day, so it always looks
+  "just practiced". The rotation skips it, except on a tie with tracks finished
+  the same day, where pool order can still pick it. That slot is then already
+  covered by the normal item. The setup is unusual, and the track is practiced
+  daily anyway.
 
 ### 3. Practice tab
 
