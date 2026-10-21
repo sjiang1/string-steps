@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { itemDisplayName, itemPlaybackSpeed, PLAYBACK_SPEEDS, primaryTrackId, type DieChoice, type PracticeItem, type PlanTask, type Track } from "../plans";
+import { itemDisplayName, itemPlaybackSpeed, PLAYBACK_SPEEDS, primaryTrackId, trackPlaybackSpeed, type DieChoice, type PracticeItem, type PlanTask, type Track } from "../plans";
 import { rhythmById, rhythms } from "../rhythms";
 import TaskChip from "./TaskChip";
 import TeacherNoteField from "./TeacherNoteField";
@@ -53,6 +53,23 @@ export default function PracticeItemRow({
 
   const dieChoices = item.dieChoices ?? [];
   const speed = itemPlaybackSpeed(item, tracks);
+  // Pools (rotating or 🎲) set a speed per audio track instead of per item.
+  const poolSpeeds =
+    item.trackChoices.length > 1
+      ? item.trackChoices.flatMap((id) => {
+          const s = trackPlaybackSpeed(item, id, tracks);
+          return s === null ? [] : [{ id, speed: s }];
+        })
+      : [];
+
+  function setTrackSpeed(trackId: string, s: number) {
+    const trackSpeeds = { ...item.trackSpeeds };
+    if (s === 1) delete trackSpeeds[trackId];
+    else trackSpeeds[trackId] = s;
+    const next: PracticeItem = { ...item, trackSpeeds };
+    if (Object.keys(trackSpeeds).length === 0) delete next.trackSpeeds;
+    onChange(next);
+  }
 
   function choiceLabel(choice: DieChoice): string {
     if (choice.kind === "track") return trackName(choice.trackId);
@@ -225,6 +242,30 @@ export default function PracticeItemRow({
           ))}
         </div>
       )}
+
+      {poolSpeeds.map(({ id, speed: s }) => (
+        <div
+          key={id}
+          role="group"
+          aria-label={`Playback speed for ${trackName(id)}`}
+          className="flex flex-wrap items-center gap-2 text-sm"
+        >
+          <span>Speed · {trackName(id)}</span>
+          {PLAYBACK_SPEEDS.map((option) => (
+            <button
+              key={option}
+              onClick={() => setTrackSpeed(id, option)}
+              disabled={disabled}
+              aria-pressed={s === option}
+              className={`rounded-full px-2 py-1 ${
+                s === option ? "bg-sky-600 text-white" : "bg-zinc-100 text-zinc-700"
+              } disabled:opacity-50`}
+            >
+              {option}×
+            </button>
+          ))}
+        </div>
+      ))}
 
       {(item.perDay !== undefined || (item.trackChoices.length > 1 && !item.dice)) && (
         <div className="flex flex-wrap items-center gap-2 text-sm">

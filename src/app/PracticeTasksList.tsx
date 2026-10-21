@@ -6,7 +6,7 @@ import RotatingItem from "./RotatingItem";
 import TaskList, { TaskTypeDef } from "./TaskList";
 import TrackMedia from "./TrackMedia";
 import TrackNote from "./TrackNote";
-import { itemDisplayName, itemOwnName, itemPlaybackSpeed, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
+import { itemDisplayName, itemOwnName, primaryTrackId, rolledTrackId, trackPlaybackSpeed, type PracticeItem, type Track } from "./plans";
 import { rhythmById } from "./rhythms";
 import { isRotating, type RotationView } from "./rotation";
 import type { Student } from "./students";
@@ -77,7 +77,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
           const ownName = itemOwnName(item);
           const title = ownName ?? trackName;
           const showTrackLine = ownName !== undefined && trackName !== title;
-          const speed = itemPlaybackSpeed(item, tracks) ?? 1;
+          const speed = trackPlaybackSpeed(item, trackId, tracks) ?? 1;
           return (
             <li key={itemKey} className="rounded-lg border bg-white p-4">
               <div className="flex items-center gap-2 mb-1">

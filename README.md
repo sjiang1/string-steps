@@ -28,7 +28,7 @@ Some practice items let the die decide what to play. Each die-enabled item keeps
 
 ### Rotating Items
 
-A practice item with several tracks can **rotate**: in the Plans tab, turn on **🔁 Rotate** and pick how many tracks to practice per day (e.g. 2 of 4). Each day the Practice tab stars the tracks that have waited longest since they were last fully practiced, so 2 of 4 alternates pieces 1+2 and 3+4. The rotation only moves on days the student actually practices, and it carries over into the next plan. Every track stays visible and can be practiced; any N finished tracks fill the day. One task list applies to every track in the item. See the [design](docs/superpowers/specs/2026-10-14-rotating-practice-item-design.md).
+A practice item with several tracks can **rotate**: in the Plans tab, turn on **🔁 Rotate** and pick how many tracks to practice per day (e.g. 2 of 4). Each day the Practice tab stars the tracks that have waited longest since they were last fully practiced, so 2 of 4 alternates pieces 1+2 and 3+4. The rotation only moves on days the student actually practices, and it carries over into the next plan. Every track stays visible and can be practiced; any N finished tracks fill the day. One task list applies to every track in the item. Each audio track in a pool (rotating or 🎲) can have its own playback speed. See the [design](docs/superpowers/specs/2026-10-14-rotating-practice-item-design.md).
 
 ### Get Ready Checklist
 

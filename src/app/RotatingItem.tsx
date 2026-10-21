@@ -4,7 +4,7 @@ import { useState } from "react";
 import TaskList, { type TaskTypeDef } from "./TaskList";
 import TrackMedia from "./TrackMedia";
 import TrackNote from "./TrackNote";
-import { itemOwnName, type PracticeItem, type Track } from "./plans";
+import { itemOwnName, trackPlaybackSpeed, type PracticeItem, type Track } from "./plans";
 import { tracksDoneToday, type RotationView } from "./rotation";
 import type { Student } from "./students";
 
@@ -56,6 +56,7 @@ export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notes
           const track = tracks.find((t) => t.id === id);
           const isOpen = open.has(id);
           const isSuggested = view.suggested.includes(id);
+          const speed = trackPlaybackSpeed(item, id, tracks) ?? 1;
           return (
             <li key={id} className="rounded-md border border-zinc-200">
               <button
@@ -66,6 +67,11 @@ export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notes
                 <span aria-hidden>{isOpen ? "▾" : "▸"}</span>
                 {isSuggested && <span>⭐</span>}
                 <span className="font-medium">{track?.name ?? id}</span>
+                {speed !== 1 && (
+                  <span className="text-xs bg-emerald-100 text-emerald-800 rounded px-1.5 py-0.5">
+                    🐢 {speed}×
+                  </span>
+                )}
                 <span className="ml-auto text-sm text-zinc-500">{view.lastDoneLabel[id]}</span>
               </button>
               {/* Collapsed panels stay mounted but hidden, so a TrackNote's saved
@@ -78,7 +84,7 @@ export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notes
                   initialDone={done}
                   onDoneChange={setDone}
                 />
-                <TrackMedia track={track} speed={1} />
+                <TrackMedia track={track} speed={speed} />
                 {activeStudent.kind === "primary" && (
                   <TrackNote trackId={id} initialNote={notesByTrack[id] ?? ""} />
                 )}

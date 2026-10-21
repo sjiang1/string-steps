@@ -19,6 +19,7 @@ export type PracticeItem = {
   dieChoices?: DieChoice[]; // required 1–6 entries when dice is true; face N = index N-1
   teacherNote?: string;
   speed?: number; // playback rate for the item's track; one of PLAYBACK_SPEEDS, unset = 1
+  trackSpeeds?: Record<string, number>; // pools only: playback rate per pool track; unset tracks play at 1
   perDay?: number; // rotating item: practice this many pool tracks per day (see rotation.ts)
 };
 
@@ -44,16 +45,25 @@ export function itemDisplayName(item: PracticeItem, tracks: Track[]): string {
   return tracks.find((t) => t.id === id)?.name ?? id;
 }
 
-// The playback rate for an item's track, or null when the item gets no speed
-// choice: only a single audio track with a "play with track" task does. A speed
-// outside PLAYBACK_SPEEDS (e.g. hand-edited in Upstash) falls back to 1.
-export function itemPlaybackSpeed(item: PracticeItem, tracks: Track[]): number | null {
+// The playback rate for one of an item's tracks, or null when it gets no speed
+// choice: only an audio track in an item with a "play with track" task does. A
+// single-track item keeps its rate in `speed`; a pool (rotating or 🎲) keeps one
+// per track in `trackSpeeds`. A speed outside PLAYBACK_SPEEDS (e.g. hand-edited
+// in Upstash) falls back to 1.
+export function trackPlaybackSpeed(item: PracticeItem, trackId: string, tracks: Track[]): number | null {
   if (!item.tasks.some((t) => t.type === "playWithTrack")) return null;
-  if (item.trackChoices.length !== 1) return null;
-  const track = tracks.find((t) => t.id === item.trackChoices[0]);
+  if (!item.trackChoices.includes(trackId)) return null;
+  const track = tracks.find((t) => t.id === trackId);
   if (track?.type !== "audio") return null;
-  const speed = item.speed ?? 1;
+  const speed = (item.trackChoices.length === 1 ? item.speed : item.trackSpeeds?.[trackId]) ?? 1;
   return (PLAYBACK_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
+}
+
+// The item-level speed control: a single-track item's rate, or null for pools
+// (they set a speed per track instead).
+export function itemPlaybackSpeed(item: PracticeItem, tracks: Track[]): number | null {
+  if (item.trackChoices.length !== 1) return null;
+  return trackPlaybackSpeed(item, item.trackChoices[0], tracks);
 }
 
 // The track a rolled face resolves to. Null for rhythm choices and for faces

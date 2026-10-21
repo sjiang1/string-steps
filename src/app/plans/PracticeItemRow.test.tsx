@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import type { PracticeItem, Track } from "../plans";
 import PracticeItemRow from "./PracticeItemRow";
 
@@ -179,5 +179,63 @@ describe("PracticeItemRow rotation", () => {
     const next = onChange.mock.calls[0][0] as PracticeItem;
     expect(next.dice).toBe(true);
     expect(next.perDay).toBeUndefined();
+  });
+});
+
+describe("PracticeItemRow per-track speed", () => {
+  const AUDIO_TRACKS: Track[] = [
+    { id: "s1", name: "Song 1", type: "audio", file: "/s1.mp3" },
+    { id: "s2", name: "Song 2", type: "audio", file: "/s2.mp3" },
+    { id: "v1", name: "Clip", type: "video", file: "/v1.mp4" },
+  ];
+  const POOL: PracticeItem = {
+    trackChoices: ["s1", "s2", "v1"],
+    tasks: [{ type: "playWithTrack", count: 1 }],
+    dice: false,
+  };
+
+  function renderPool(item: PracticeItem) {
+    const onChange = vi.fn();
+    render(
+      <PracticeItemRow
+        item={item}
+        tracks={AUDIO_TRACKS}
+        disabled={false}
+        invalidTaskIndices={new Set()}
+        onChange={onChange}
+        onAddTrack={() => {}}
+        onReplaceTrack={() => {}}
+        onRemoveTrack={() => {}}
+        onRemove={() => {}}
+      />,
+    );
+    return onChange;
+  }
+
+  it("shows a speed control for each audio track in a pool, none for video", () => {
+    renderPool(POOL);
+    expect(screen.getByRole("group", { name: "Playback speed for Song 1" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Playback speed for Song 2" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Playback speed for Clip" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Playback speed" })).toBeNull();
+  });
+
+  it("sets one track's speed in trackSpeeds", () => {
+    const onChange = renderPool(POOL);
+    const group = screen.getByRole("group", { name: "Playback speed for Song 2" });
+    fireEvent.click(within(group).getByRole("button", { name: "0.75×" }));
+    expect(onChange).toHaveBeenCalledWith({ ...POOL, trackSpeeds: { s2: 0.75 } });
+  });
+
+  it("setting a track back to 1× removes it, and the map when empty", () => {
+    const onChange = renderPool({ ...POOL, trackSpeeds: { s2: 0.75 } });
+    const group = screen.getByRole("group", { name: "Playback speed for Song 2" });
+    fireEvent.click(within(group).getByRole("button", { name: "1×" }));
+    expect(onChange).toHaveBeenCalledWith(POOL);
+  });
+
+  it("hides per-track speeds without a play-with-track task", () => {
+    renderPool({ ...POOL, tasks: [{ type: "sing", count: 1 }] });
+    expect(screen.queryByRole("group", { name: /Playback speed/ })).toBeNull();
   });
 });

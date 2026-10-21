@@ -96,3 +96,30 @@ describe("RotatingItem", () => {
     expect(within(screen.getByRole("button", { name: /Piece 1/ })).getByText("✓ yesterday")).toBeTruthy();
   });
 });
+
+describe("RotatingItem per-track speed", () => {
+  it("plays each audio track at its own speed and badges slow ones", () => {
+    const songs: Track[] = TRACKS.map((t) => ({ ...t, type: "audio" as const, file: `/${t.id}.mp3` }));
+    const item: PracticeItem = {
+      ...ITEM,
+      tasks: [{ type: "playWithTrack", count: 1 }],
+      trackSpeeds: { p3: 0.75 },
+    };
+    const { container } = render(
+      <RotatingItem
+        item={item}
+        tracks={songs}
+        taskTypes={[]}
+        doneTasks={[]}
+        notesByTrack={{}}
+        activeStudent={PRIMARY}
+        view={{ suggested: ["p3", "p4"], lastDoneLabel: {} }}
+      />,
+    );
+    const rates = Array.from(container.querySelectorAll("audio")).map((a) => [a.getAttribute("src"), a.playbackRate]);
+    expect(rates).toContainEqual(["/p3.mp3", 0.75]);
+    expect(rates).toContainEqual(["/p4.mp3", 1]);
+    expect(within(screen.getByRole("button", { name: /Piece 3/ })).getByText("🐢 0.75×")).toBeTruthy();
+    expect(within(screen.getByRole("button", { name: /Piece 4/ })).queryByText(/🐢/)).toBeNull();
+  });
+});

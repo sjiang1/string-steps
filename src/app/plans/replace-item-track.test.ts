@@ -68,3 +68,37 @@ describe("removePoolTrack", () => {
     expect(items[0].dieChoices).toHaveLength(3);
   });
 });
+
+describe("pool edits keep playback speeds", () => {
+  it("moves a single-track item's speed onto that track when a second track is added", () => {
+    const items: PracticeItem[] = [{ trackChoices: ["a"], tasks: [], dice: false, speed: 0.75 }];
+    const [next] = addPoolTrack(items, 0, "b");
+    expect(next.speed).toBeUndefined();
+    expect(next.trackSpeeds).toEqual({ a: 0.75 });
+  });
+
+  it("drops a removed track's speed", () => {
+    const items: PracticeItem[] = [
+      { trackChoices: ["a", "b", "c"], tasks: [], dice: false, trackSpeeds: { a: 0.5, b: 0.75 } },
+    ];
+    const [next] = removePoolTrack(items, 0, "b");
+    expect(next.trackSpeeds).toEqual({ a: 0.5 });
+  });
+
+  it("moves the last track's speed back to the item when the pool shrinks to one", () => {
+    const items: PracticeItem[] = [
+      { trackChoices: ["a", "b"], tasks: [], dice: false, trackSpeeds: { a: 0.5, b: 0.75 } },
+    ];
+    const [next] = removePoolTrack(items, 0, "a");
+    expect(next.speed).toBe(0.75);
+    expect(next.trackSpeeds).toBeUndefined();
+  });
+
+  it("keeps a replaced track's speed on the new track", () => {
+    const items: PracticeItem[] = [
+      { trackChoices: ["a", "b"], tasks: [], dice: false, trackSpeeds: { a: 0.5 } },
+    ];
+    const [next] = replacePoolTrack(items, 0, "a", "z");
+    expect(next.trackSpeeds).toEqual({ z: 0.5 });
+  });
+});

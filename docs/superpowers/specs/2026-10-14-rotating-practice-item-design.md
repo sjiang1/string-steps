@@ -36,12 +36,28 @@ they were last fully practiced. It generalizes to any N of M (3 of 6, 1 of 5…)
 - Validation (`src/app/plans/plan-validation.ts`):
   - `1 ≤ perDay < trackChoices.length`
   - `perDay` and `dice: true` are mutually exclusive
-  - no per-item playback speed on a rotating item (that feature applies to a
-    single track only)
 - Plan editor: when an item has 2+ tracks and the die is off, show a
   **"🔁 Rotate: practice [N] per day"** control.
-- "New plan from a source plan" must carry `perDay` over (watch for the same
-  field-dropping class of bug as #23).
+- "New plan from a source plan" must carry `perDay` and `trackSpeeds` over
+  (watch for the same field-dropping class of bug as #23).
+
+### 1b. Playback speed per track (any pool)
+
+Added during implementation, at Siyuan's request: a pool can slow down one
+tricky piece without slowing the others.
+
+- New optional field `PracticeItem.trackSpeeds?: Record<string, number>`, used by
+  **every pool**: rotating items and 🎲 die items. A single-track item keeps its
+  item-level `speed` from #21, so no stored plans need migrating.
+- `trackPlaybackSpeed(item, trackId, tracks)` in `src/app/plans.ts` resolves a
+  track's rate. Same eligibility as #21: an **audio** track in an item with a
+  "play with track" task. Unset or unknown values play at 1×.
+- Plan editor: a pool shows one "Speed · <track>" row per eligible track.
+- Pool edits keep speeds with their track: replacing a track carries its speed
+  to the new one, removing drops it, and growing from one track to two (or
+  shrinking back) moves the speed between `speed` and `trackSpeeds`.
+- Practice tab: the rolled (🎲) or listed (🔁) track plays at its own speed,
+  with the 🐢 badge when it isn't 1×.
 
 ### 2. Suggesting today's tracks
 
@@ -116,5 +132,7 @@ Properties:
   pick corrects the order; rotation carries across plans; per-student logs.
 - Validation rules for `perDay`.
 - Calendar total/done math for a rotating item.
-- Plan copy keeps `perDay`.
+- Plan copy keeps `perDay` and `trackSpeeds`.
+- Per-track speed: lookup rules, pool edits moving speeds, editor rows, and
+  the rolled/rotating track playing at its own speed.
 - No unit tests for the collapsed-row layout (small UI).
