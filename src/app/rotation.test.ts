@@ -5,6 +5,7 @@ import {
   daysAgoLabel,
   isRotating,
   lastFullyDoneDate,
+  rotatingItemProgress,
   suggestTracks,
   trackFullyDone,
   tracksDoneToday,
@@ -179,5 +180,21 @@ describe("daysAgoLabel", () => {
     expect(daysAgoLabel(null, "2026-10-14")).toBe("not yet");
     expect(daysAgoLabel("2026-10-13", "2026-10-14")).toBe("✓ yesterday");
     expect(daysAgoLabel("2026-10-11", "2026-10-14")).toBe("✓ 3 days ago");
+  });
+});
+
+describe("rotatingItemProgress", () => {
+  it("totals perDay × tasks and counts the best perDay tracks' finished tasks", () => {
+    expect(rotatingItemProgress(FOUR, [])).toEqual({ done: 0, total: 4 });
+    // p1 fully done (2 tasks), p3 half (sing only)
+    expect(rotatingItemProgress(FOUR, [...fullKeys(["p1"]), "p3-sing-0"])).toEqual({ done: 3, total: 4 });
+  });
+
+  it("doesn't count a task with more taps than its target", () => {
+    expect(rotatingItemProgress(FOUR, [...fullKeys(["p1"]), "p1-sing-1"])).toEqual({ done: 1, total: 4 });
+  });
+
+  it("does not overfill when more than perDay tracks are done", () => {
+    expect(rotatingItemProgress(FOUR, fullKeys(["p1", "p2", "p3"]))).toEqual({ done: 4, total: 4 });
   });
 });

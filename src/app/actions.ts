@@ -16,6 +16,7 @@ import { isClassDay, isNonPracticeDay } from "./day-types";
 import { todayLocal } from "./today";
 import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-activation";
 import { doneLogId, findPrimary, type Student } from "./students";
+import { isRotating, rotatingItemProgress } from "./rotation";
 import { doneCountForTask } from "./task-keys";
 
 const useRedis = !!process.env.KV_REST_API_URL;
@@ -309,6 +310,12 @@ export async function getMonthProgress(
     let finished = 0;
     let total = 0;
     for (const item of plan.items) {
+      if (isRotating(item)) {
+        const p = rotatingItemProgress(item, done);
+        finished += p.done;
+        total += p.total;
+        continue;
+      }
       for (const task of item.tasks) {
         total++;
         if (item.trackChoices.some((id) => doneCountForTask(id, task, done) === task.count)) {

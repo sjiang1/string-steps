@@ -76,5 +76,20 @@ export function daysAgoLabel(last: string | null, today: string): string {
   return days === 1 ? "✓ yesterday" : `✓ ${days} days ago`;
 }
 
+// Calendar progress for a rotating item, one unit per finished task (#26): the
+// perDay tracks with the most finished tasks count, capped at perDay × tasks.
+export function rotatingItemProgress(
+  item: PracticeItem,
+  done: string[],
+): { done: number; total: number } {
+  const perDay = item.perDay ?? 0;
+  const total = perDay * item.tasks.length;
+  const finishedPerTrack = item.trackChoices
+    .map((id) => item.tasks.filter((t) => doneCountForTask(id, t, done) === t.count).length)
+    .sort((a, b) => b - a);
+  const sum = finishedPerTrack.slice(0, perDay).reduce((s, n) => s + n, 0);
+  return { done: Math.min(sum, total), total };
+}
+
 // What the Practice page needs for one rotating item, computed on the server.
 export type RotationView = { suggested: string[]; lastDoneLabel: Record<string, string> };
