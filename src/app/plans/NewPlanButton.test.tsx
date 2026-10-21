@@ -34,4 +34,18 @@ describe("NewPlanButton", () => {
     const draft = (createPlan.mock.calls[0] as unknown as [Plan])[0];
     expect(draft.items[0].speed).toBe(0.75);
   });
+
+  it("carries each item's perDay into the new plan", async () => {
+    createPlan.mockClear();
+    const source: Plan = {
+      ...SOURCE,
+      items: [{ trackChoices: ["a", "b", "c", "d"], tasks: [], dice: false, perDay: 2 }],
+    };
+    render(<NewPlanButton sourcePlan={source} defaultActiveFrom="2026-10-05" />);
+    fireEvent.click(screen.getByRole("button", { name: "+ New plan" }));
+    fireEvent.click(screen.getByRole("button", { name: /create/i }));
+    await waitFor(() => expect(createPlan).toHaveBeenCalled());
+    const draft = (createPlan.mock.calls[0] as unknown as [Plan])[0];
+    expect(draft.items[0].perDay).toBe(2);
+  });
 });

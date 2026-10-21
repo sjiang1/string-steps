@@ -117,3 +117,67 @@ describe("PracticeItemRow playback speed", () => {
     expect(screen.queryByRole("group", { name: "Playback speed" })).toBeNull();
   });
 });
+
+describe("PracticeItemRow rotation", () => {
+  const POOL_TRACKS: Track[] = ["p1", "p2", "p3", "p4"].map((id) => ({
+    id,
+    name: id.toUpperCase(),
+    type: "reference" as const,
+    file: null,
+  }));
+  const POOL: PracticeItem = { trackChoices: ["p1", "p2", "p3", "p4"], tasks: [], dice: false };
+
+  function renderPoolRow(item: PracticeItem) {
+    const onChange = vi.fn();
+    render(
+      <PracticeItemRow
+        item={item}
+        tracks={POOL_TRACKS}
+        disabled={false}
+        invalidTaskIndices={new Set()}
+        onChange={onChange}
+        onAddTrack={() => {}}
+        onReplaceTrack={() => {}}
+        onRemoveTrack={() => {}}
+        onRemove={() => {}}
+      />,
+    );
+    return onChange;
+  }
+
+  it("offers no Rotate control for a single-track item", () => {
+    renderPoolRow({ ...POOL, trackChoices: ["p1"] });
+    expect(screen.queryByLabelText("Rotate")).toBeNull();
+  });
+
+  it("turning Rotate on defaults to half the pool", () => {
+    const onChange = renderPoolRow(POOL);
+    fireEvent.click(screen.getByLabelText("Rotate"));
+    expect(onChange).toHaveBeenCalledWith({ ...POOL, perDay: 2 });
+  });
+
+  it("changes the tracks-per-day number", () => {
+    const onChange = renderPoolRow({ ...POOL, perDay: 2 });
+    fireEvent.change(screen.getByLabelText("Tracks per day"), { target: { value: "3" } });
+    expect(onChange).toHaveBeenCalledWith({ ...POOL, perDay: 3 });
+  });
+
+  it("turning Rotate off removes perDay", () => {
+    const onChange = renderPoolRow({ ...POOL, perDay: 2 });
+    fireEvent.click(screen.getByLabelText("Rotate"));
+    expect(onChange).toHaveBeenCalledWith(POOL);
+  });
+
+  it("keeps the control visible when the pool shrank below perDay, so it can be fixed", () => {
+    renderPoolRow({ ...POOL, trackChoices: ["p1"], perDay: 2 });
+    expect(screen.getByLabelText("Rotate")).toBeTruthy();
+  });
+
+  it("enabling the die clears perDay", () => {
+    const onChange = renderPoolRow({ ...POOL, perDay: 2 });
+    fireEvent.click(screen.getByLabelText("Dice"));
+    const next = onChange.mock.calls[0][0] as PracticeItem;
+    expect(next.dice).toBe(true);
+    expect(next.perDay).toBeUndefined();
+  });
+});

@@ -35,6 +35,7 @@ export default function NewPlanButton({
               dice: it.dice,
               teacherNote: it.teacherNote,
               speed: it.speed,
+              perDay: it.perDay,
             })),
             checklist: [...sourcePlan.checklist],
           }

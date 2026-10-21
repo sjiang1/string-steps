@@ -226,6 +226,39 @@ export default function PracticeItemRow({
         </div>
       )}
 
+      {(item.perDay !== undefined || (item.trackChoices.length > 1 && !item.dice)) && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <input
+            id={`rotate-${primaryTrackId(item)}`}
+            type="checkbox"
+            aria-label="Rotate"
+            checked={item.perDay !== undefined}
+            disabled={disabled}
+            onChange={(e) => {
+              if (e.target.checked) {
+                onChange({ ...item, perDay: Math.max(1, Math.floor(item.trackChoices.length / 2)) });
+              } else {
+                const next: PracticeItem = { ...item };
+                delete next.perDay;
+                onChange(next);
+              }
+            }}
+          />
+          <label htmlFor={`rotate-${primaryTrackId(item)}`}>🔁 Rotate: practice</label>
+          <input
+            type="number"
+            aria-label="Tracks per day"
+            min={1}
+            max={Math.max(1, item.trackChoices.length - 1)}
+            value={item.perDay ?? Math.max(1, Math.floor(item.trackChoices.length / 2))}
+            disabled={disabled || item.perDay === undefined}
+            onChange={(e) => onChange({ ...item, perDay: Number(e.target.value) })}
+            className="w-14 rounded border border-zinc-200 px-2 py-1 disabled:text-zinc-300"
+          />
+          <span>of {item.trackChoices.length} per day</span>
+        </div>
+      )}
+
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -234,7 +267,9 @@ export default function PracticeItemRow({
           onChange={(e) => {
             setAddingDieChoice(false);
             if (e.target.checked) {
-              onChange({ ...item, dice: true, dieChoices: defaultDieChoices(item) });
+              const next: PracticeItem = { ...item, dice: true, dieChoices: defaultDieChoices(item) };
+              delete next.perDay;
+              onChange(next);
             } else {
               const next: PracticeItem = { ...item, dice: false };
               delete next.dieChoices;
