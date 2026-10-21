@@ -2,16 +2,28 @@ import taskTypes from "@data/task-types.json";
 import checklistItems from "@data/checklist-items.json";
 import GetReadyChecklist from "./GetReadyChecklist";
 import PracticeTasksList from "./PracticeTasksList";
-import { resolvePracticePlanForDate } from "./plans";
+import { primaryTrackId, resolvePracticePlanForDate } from "./plans";
 import {
   getActiveStudent,
   getChecklistImageBlobs,
+  getDoneHistory,
   getDoneTasks,
   getNotesForDate,
+  getPlans,
   getPrimaryStudent,
+  getSchedule,
   getTeacher,
   getTracks,
 } from "./actions";
+import {
+  daysAgoLabel,
+  isRotating,
+  lastFullyDoneDate,
+  ROTATION_LOOKBACK_DAYS,
+  suggestTracks,
+  type HistoryDay,
+  type RotationView,
+} from "./rotation";
 import { todayLocal } from "./today";
 
 export default async function Home() {
@@ -71,6 +83,29 @@ export default async function Home() {
 
   const plan = result.plan;
 
+  // Rotating items rank their pool from the student's recent log (before today).
+  const rotation: Record<string, RotationView> = {};
+  const rotatingItems = plan.items.filter(isRotating);
+  if (rotatingItems.length > 0) {
+    const [history, schedule, plans] = await Promise.all([
+      getDoneHistory(activeStudent, today, ROTATION_LOOKBACK_DAYS),
+      getSchedule(),
+      getPlans(),
+    ]);
+    const days: HistoryDay[] = history.map((h) => ({
+      ...h,
+      plan: plans.find((p) => p.id === schedule[h.date]),
+    }));
+    for (const item of rotatingItems) {
+      rotation[primaryTrackId(item)] = {
+        suggested: suggestTracks(item, days),
+        lastDoneLabel: Object.fromEntries(
+          item.trackChoices.map((id) => [id, daysAgoLabel(lastFullyDoneDate(id, item, days), today)]),
+        ),
+      };
+    }
+  }
+
   return (
     <div className="min-h-full bg-zinc-50 font-sans">
       <div className="px-8 pt-8 pb-4">
@@ -106,6 +141,7 @@ export default async function Home() {
           doneTasks={doneTasks}
           notesByTrack={notesByTrack}
           activeStudent={activeStudent}
+          rotation={rotation}
         />
       </div>
     </div>

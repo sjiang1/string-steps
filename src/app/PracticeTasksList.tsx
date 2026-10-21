@@ -2,30 +2,14 @@
 
 import { useEffect, useState } from "react";
 import PracticeDie, { storedDieFace } from "./PracticeDie";
+import RotatingItem from "./RotatingItem";
 import TaskList, { TaskTypeDef } from "./TaskList";
+import TrackMedia from "./TrackMedia";
 import TrackNote from "./TrackNote";
 import { itemDisplayName, itemOwnName, itemPlaybackSpeed, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
 import { rhythmById } from "./rhythms";
+import { isRotating, type RotationView } from "./rotation";
 import type { Student } from "./students";
-
-// Browsers reset playbackRate whenever the media (re)loads, so re-apply the
-// speed on every loadedmetadata, not just on mount.
-function SpeedAudio({ src, speed }: { src: string; speed: number }) {
-  const apply = (el: HTMLAudioElement | null) => {
-    if (!el) return;
-    el.defaultPlaybackRate = speed;
-    el.playbackRate = speed;
-  };
-  return (
-    <audio
-      ref={apply}
-      controls
-      className="w-full mb-2"
-      src={src}
-      onLoadedMetadata={(e) => apply(e.currentTarget)}
-    />
-  );
-}
 
 interface Props {
   items: PracticeItem[];
@@ -34,9 +18,10 @@ interface Props {
   doneTasks: string[];
   notesByTrack: Record<string, string>;
   activeStudent: Student;
+  rotation?: Record<string, RotationView>; // keyed by primaryTrackId(item)
 }
 
-export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks, notesByTrack, activeStudent }: Props) {
+export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks, notesByTrack, activeStudent, rotation }: Props) {
   // All keyed by itemKey (= the item's first pool track).
   const [activeDieItemKey, setActiveDieItemKey] = useState<string | null>(null);
   const [rolledFaces, setRolledFaces] = useState<Record<string, number>>({});
@@ -64,6 +49,21 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
       <ul className="space-y-4">
         {items.map((item) => {
           const itemKey = primaryTrackId(item);
+          const view = rotation?.[itemKey];
+          if (isRotating(item) && view) {
+            return (
+              <RotatingItem
+                key={itemKey}
+                item={item}
+                tracks={tracks}
+                taskTypes={taskTypes}
+                doneTasks={doneTasks}
+                notesByTrack={notesByTrack}
+                activeStudent={activeStudent}
+                view={view}
+              />
+            );
+          }
           const face = rolledFaces[itemKey];
           const trackId =
             (face !== undefined ? rolledTrackId(item, face) : null) ?? primaryTrackId(item);
@@ -121,12 +121,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
                 taskTypes={taskTypes}
                 initialDone={doneTasks}
               />
-              {track?.type === "audio" && track.file && (
-                <SpeedAudio src={track.file} speed={speed} />
-              )}
-              {track?.type === "video" && track.file && (
-                <video controls className="max-h-[400px] rounded mb-2" src={track.file} />
-              )}
+              <TrackMedia track={track} speed={speed} />
               {activeStudent.kind === "primary" && (
                 <TrackNote
                   trackId={trackId}
