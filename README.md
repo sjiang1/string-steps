@@ -26,6 +26,10 @@ Each task has a repeat count, and any task can be a **focus drill** — scoped t
 
 Some practice items let the die decide what to play. Each die-enabled item keeps an ordered list of up to six choices — rhythms (e.g. 🍕 *pepperoni pizza*) and/or tracks from the item's pool — and tapping the item's **🎲** summons a big shared die: the rolled number picks the matching choice (rolling past the end of the list means "roll again!"). A rolled track switches the whole item — audio, tap targets, notes — to that track. See the [implementation plan](docs/superpowers/plans/2026-07-21-shared-practice-die.md).
 
+### Rotating Items
+
+A practice item with several tracks can **rotate**: in the Plans tab, turn on **🔁 Rotate** and pick how many tracks to practice per day (e.g. 2 of 4). Each day the Practice tab stars the tracks that have waited longest since they were last fully practiced, so 2 of 4 alternates pieces 1+2 and 3+4. The rotation only moves on days the student actually practices, and it carries over into the next plan. Every track stays visible and can be practiced; any N finished tracks fill the day. One task list applies to every track in the item. See the [design](docs/superpowers/specs/2026-10-14-rotating-practice-item-design.md).
+
 ### Get Ready Checklist
 
 A configurable checklist to run through before playing, defined declaratively in
