@@ -253,6 +253,23 @@ export async function getDoneTasks(
   return keys;
 }
 
+// The student's done keys for the `days` dates before `beforeDate`, newest
+// first — the input for ranking a rotating item's tracks. The file fallback
+// reads sequentially because getDoneTasks may rewrite the shared log file.
+export async function getDoneHistory(
+  student: Student,
+  beforeDate: string,
+  days: number,
+): Promise<{ date: string; done: string[] }[]> {
+  const dates = Array.from({ length: days }, (_, i) => notesAddDays(beforeDate, -(i + 1)));
+  if (redis) {
+    return Promise.all(dates.map(async (date) => ({ date, done: await getDoneTasks(date, student) })));
+  }
+  const out: { date: string; done: string[] }[] = [];
+  for (const date of dates) out.push({ date, done: await getDoneTasks(date, student) });
+  return out;
+}
+
 export async function toggleTask(date: string, taskKey: string): Promise<string[]> {
   const student = await getActiveStudent();
   const logId = doneLogId(student, date);

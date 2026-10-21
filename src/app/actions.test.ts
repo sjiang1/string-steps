@@ -1004,3 +1004,23 @@ describe("getStudents / getTeacher", () => {
     expect((await getTeacher()).name).toBe(TEST_TEACHER.name);
   });
 });
+
+describe("getDoneHistory", () => {
+  it("returns the given number of days before the date, newest first, per student", async () => {
+    writeFileSync(
+      tempFile,
+      JSON.stringify({
+        "2026-10-13": ["p1-sing-0"],
+        "2026-10-12": ["p2-sing-0"],
+        "2026-10-14": ["today-sing-0"],
+        "2026-10-13:linked-kid": ["linked-sing-0"],
+      }),
+    );
+    const { getDoneHistory } = await loadActions();
+    expect(await getDoneHistory(PRIMARY, "2026-10-14", 3)).toEqual([
+      { date: "2026-10-13", done: ["p1-sing-0"] },
+      { date: "2026-10-12", done: ["p2-sing-0"] },
+      { date: "2026-10-11", done: [] },
+    ]);
+  });
+});
