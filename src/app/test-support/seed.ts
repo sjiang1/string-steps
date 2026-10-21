@@ -22,5 +22,6 @@ export const TEST_PLANS: Plan[] = [
   },
 ];
 
-// Sum of task counts in TEST_PLANS[0] — keep getMonthProgress assertions in sync.
-export const TEST_PLAN_TASK_TOTAL = 3;
+// Number of tasks in TEST_PLANS[0] (each task counts once, whatever its
+// repetition count) — keep getMonthProgress assertions in sync.
+export const TEST_PLAN_TASK_TOTAL = 2;
