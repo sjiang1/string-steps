@@ -68,21 +68,21 @@ export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notes
                 <span className="font-medium">{track?.name ?? id}</span>
                 <span className="ml-auto text-sm text-zinc-500">{view.lastDoneLabel[id]}</span>
               </button>
-              {isOpen && (
-                <div className="px-3 pb-3">
-                  <TaskList
-                    trackId={id}
-                    tasks={item.tasks}
-                    taskTypes={taskTypes}
-                    initialDone={done}
-                    onDoneChange={setDone}
-                  />
-                  <TrackMedia track={track} speed={1} />
-                  {activeStudent.kind === "primary" && (
-                    <TrackNote trackId={id} initialNote={notesByTrack[id] ?? ""} />
-                  )}
-                </div>
-              )}
+              {/* Collapsed panels stay mounted but hidden, so a TrackNote's saved
+                  text and the audio player keep their state across collapse/reopen. */}
+              <div hidden={!isOpen} className="px-3 pb-3">
+                <TaskList
+                  trackId={id}
+                  tasks={item.tasks}
+                  taskTypes={taskTypes}
+                  initialDone={done}
+                  onDoneChange={setDone}
+                />
+                <TrackMedia track={track} speed={1} />
+                {activeStudent.kind === "primary" && (
+                  <TrackNote trackId={id} initialNote={notesByTrack[id] ?? ""} />
+                )}
+              </div>
             </li>
           );
         })}

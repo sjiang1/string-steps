@@ -3,12 +3,29 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import type { PracticeItem, Track } from "./plans";
 import type { Student } from "./students";
+
+// Task lists in rows that are open (collapsed rows keep theirs mounted but hidden).
+function visibleTaskLists(): string[] {
+  return screen
+    .getAllByTestId("task-list")
+    .filter((e) => !e.closest("[hidden]"))
+    .map((e) => e.textContent ?? "");
+}
 import RotatingItem from "./RotatingItem";
 
 vi.mock("./TaskList", () => ({
   default: ({ trackId }: { trackId: string }) => <div data-testid="task-list">{trackId}</div>,
 }));
-vi.mock("./TrackNote", () => ({ default: () => null }));
+// A stateful stand-in: a saved note lives only in TrackNote's own state.
+vi.mock("./TrackNote", async () => {
+  const { useState } = await import("react");
+  return {
+    default: function TrackNote({ trackId }: { trackId: string }) {
+      const [note, setNote] = useState("");
+      return <button onClick={() => setNote("saved")}>{`note ${trackId}: ${note || "none"}`}</button>;
+    },
+  };
+});
 
 const TRACKS: Track[] = ["p1", "p2", "p3", "p4"].map((id) => ({
   id,
@@ -54,13 +71,21 @@ describe("RotatingItem", () => {
       expect.not.stringContaining("⭐"),
     ]);
     expect(rows[0].textContent).toContain("Piece 3");
-    expect(screen.getAllByTestId("task-list").map((e) => e.textContent)).toEqual(["p3", "p4"]);
+    expect(visibleTaskLists()).toEqual(["p3", "p4"]);
   });
 
   it("opens a collapsed track on tap", () => {
     renderItem();
     fireEvent.click(screen.getByRole("button", { name: /Piece 1/ }));
-    expect(screen.getAllByTestId("task-list").map((e) => e.textContent)).toContain("p1");
+    expect(visibleTaskLists()).toContain("p1");
+  });
+
+  it("keeps a note saved in a track after its row is collapsed and reopened", () => {
+    renderItem();
+    fireEvent.click(screen.getByRole("button", { name: "note p3: none" }));
+    fireEvent.click(screen.getByRole("button", { name: /Piece 3/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Piece 3/ }));
+    expect(screen.getByRole("button", { name: "note p3: saved" })).toBeTruthy();
   });
 
   it("titles an unnamed item by its rotation and counts tracks done today", () => {
