@@ -109,6 +109,38 @@ describe("validatePlan", () => {
     ]);
     expect(validatePlan(p)).toEqual([]);
   });
+
+  it("accepts a valid rotating item", () => {
+    const p = plan([
+      { trackChoices: ["a", "b", "c", "d"], tasks: [{ type: "sing", count: 1 }], dice: false, perDay: 2 },
+    ]);
+    expect(validatePlan(p)).toEqual([]);
+  });
+
+  it("flags perDay outside 1..pool-1 or not an integer", () => {
+    for (const perDay of [0, 4, 5, 1.5]) {
+      const p = plan([{ trackChoices: ["a", "b", "c", "d"], tasks: [], dice: false, perDay }]);
+      expect(validatePlan(p)).toEqual([{ trackId: "a", reason: "rotation-per-day" }]);
+    }
+  });
+
+  it("flags a single-track item left with perDay after its pool shrank", () => {
+    const p = plan([{ trackChoices: ["a"], tasks: [], dice: false, perDay: 1 }]);
+    expect(validatePlan(p)).toEqual([{ trackId: "a", reason: "rotation-per-day" }]);
+  });
+
+  it("flags rotation combined with the die", () => {
+    const p = plan([
+      {
+        trackChoices: ["a", "b"],
+        tasks: [],
+        dice: true,
+        dieChoices: [{ kind: "track", trackId: "a" }],
+        perDay: 1,
+      },
+    ]);
+    expect(validatePlan(p)).toEqual([{ trackId: "a", reason: "rotation-with-dice" }]);
+  });
 });
 
 describe("validatePlan — die rules", () => {

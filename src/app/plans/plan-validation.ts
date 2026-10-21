@@ -9,7 +9,13 @@ export type PlanTaskError = {
 
 export type PlanItemError = {
   trackId: string;
-  reason: "die-choices-count" | "die-track-not-in-pool" | "die-rhythm-unknown" | "duplicate-pool-track";
+  reason:
+    | "die-choices-count"
+    | "die-track-not-in-pool"
+    | "die-rhythm-unknown"
+    | "duplicate-pool-track"
+    | "rotation-per-day"
+    | "rotation-with-dice";
 };
 
 export type PlanValidationError = PlanTaskError | PlanItemError;
@@ -58,6 +64,16 @@ export function validatePlan(plan: Plan): PlanValidationError[] {
       }
       if (choices.some((c) => c.kind === "rhythm" && rhythmById(c.rhythmId) === undefined)) {
         errors.push({ trackId, reason: "die-rhythm-unknown" });
+      }
+    }
+
+    if (item.perDay !== undefined) {
+      const n = item.perDay;
+      if (!Number.isInteger(n) || n < 1 || n >= item.trackChoices.length) {
+        errors.push({ trackId, reason: "rotation-per-day" });
+      }
+      if (item.dice) {
+        errors.push({ trackId, reason: "rotation-with-dice" });
       }
     }
   }
