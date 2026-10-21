@@ -229,6 +229,38 @@ describe("getMonthProgress", () => {
     expect(result["2026-04-10"]).toEqual({ type: "practice", done: 1, total: 2 });
   });
 
+  it("counts a rotating item as perDay tracks' worth of tasks", async () => {
+    setupPlansData([
+      {
+        id: "1",
+        createdDate: "2026-04-07",
+        items: [
+          {
+            trackChoices: ["p1", "p2", "p3", "p4"],
+            tasks: [{ type: "sing", count: 1 }, { type: "playWithTrack", count: 2 }],
+            dice: false,
+            perDay: 2,
+          },
+        ],
+        checklist: [],
+      },
+    ]);
+    setupScheduleData({ "2026-04-09": "1" });
+    writeFileSync(
+      tempFile,
+      JSON.stringify({
+        "2026-04-09": [
+          "p1-sing-0", "p1-playWithTrack-0", "p1-playWithTrack-1",
+          "p2-sing-0", "p2-playWithTrack-0", "p2-playWithTrack-1",
+          "p3-sing-0", "p3-playWithTrack-0", "p3-playWithTrack-1",
+        ],
+      }),
+    );
+    const { getMonthProgress } = await loadActions();
+    const progress = await getMonthProgress("2026-04");
+    expect(progress["2026-04-09"]).toEqual({ type: "practice", done: 4, total: 4 });
+  });
+
   it("returns non-practice entry for group class days", async () => {
     setupScheduleData({ "2026-04-11": "group-class" });
     const { getMonthProgress } = await loadActions();
@@ -1002,5 +1034,25 @@ describe("getStudents / getTeacher", () => {
   it("getTeacher reads the teacher from the seed (no Redis)", async () => {
     const { getTeacher } = await loadActions();
     expect((await getTeacher()).name).toBe(TEST_TEACHER.name);
+  });
+});
+
+describe("getDoneHistory", () => {
+  it("returns the given number of days before the date, newest first, per student", async () => {
+    writeFileSync(
+      tempFile,
+      JSON.stringify({
+        "2026-10-13": ["p1-sing-0"],
+        "2026-10-12": ["p2-sing-0"],
+        "2026-10-14": ["today-sing-0"],
+        "2026-10-13:linked-kid": ["linked-sing-0"],
+      }),
+    );
+    const { getDoneHistory } = await loadActions();
+    expect(await getDoneHistory(PRIMARY, "2026-10-14", 3)).toEqual([
+      { date: "2026-10-13", done: ["p1-sing-0"] },
+      { date: "2026-10-12", done: ["p2-sing-0"] },
+      { date: "2026-10-11", done: [] },
+    ]);
   });
 });

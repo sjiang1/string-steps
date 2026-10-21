@@ -66,6 +66,11 @@ export default function TeacherEmailBuilder({
                   {p.label} {p.done}/{p.total}
                 </span>
               ))}
+              {entry.rotationDays !== undefined && (
+                <span>
+                  🔁 Practiced fully on {entry.rotationDays} day{entry.rotationDays === 1 ? "" : "s"}
+                </span>
+              )}
             </div>
             {entry.notes.length > 0 && (
               <ul className="mt-2 space-y-1">

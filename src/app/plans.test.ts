@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TEST_PRIMARY as PRIMARY, TEST_LINKED as LINKED } from "./test-support/people";
-import { itemDisplayName, itemPlaybackSpeed, primaryTrackId, rolledTrackId, type PracticeItem, type Track } from "./plans";
+import { itemDisplayName, itemPlaybackSpeed, primaryTrackId, rolledTrackId, trackPlaybackSpeed, type PracticeItem, type Track } from "./plans";
 
 async function loadPlans() {
   const mod = await import("./plans");
@@ -339,5 +339,40 @@ describe("resolvePracticePlanForDate", () => {
     if (result.ok && "dayType" in result) {
       expect(result.dayType.id).toBe("individual-class");
     }
+  });
+});
+
+describe("trackPlaybackSpeed", () => {
+  const SPEED_TRACKS: Track[] = [
+    { id: "song", name: "Song", type: "audio", file: "/song.mp3" },
+    { id: "song2", name: "Song 2", type: "audio", file: "/song2.mp3" },
+    { id: "clip", name: "Clip", type: "video", file: "/clip.mp4" },
+  ];
+  const POOL: PracticeItem = {
+    trackChoices: ["song", "song2", "clip"],
+    tasks: [{ type: "playWithTrack", count: 1 }],
+    dice: false,
+  };
+
+  it("uses the item's speed for a single-track item", () => {
+    const item = { ...POOL, trackChoices: ["song"], speed: 0.75 };
+    expect(trackPlaybackSpeed(item, "song", SPEED_TRACKS)).toBe(0.75);
+  });
+
+  it("gives each audio track in a pool its own speed, defaulting to 1", () => {
+    const item = { ...POOL, speed: 0.5, trackSpeeds: { song2: 0.75 } };
+    expect(trackPlaybackSpeed(item, "song2", SPEED_TRACKS)).toBe(0.75);
+    expect(trackPlaybackSpeed(item, "song", SPEED_TRACKS)).toBe(1);
+  });
+
+  it("returns null for a video track, a track outside the pool, or without a play-with-track task", () => {
+    expect(trackPlaybackSpeed(POOL, "clip", SPEED_TRACKS)).toBeNull();
+    expect(trackPlaybackSpeed({ ...POOL, trackChoices: ["song2"] }, "song", SPEED_TRACKS)).toBeNull();
+    const noPlay = { ...POOL, trackSpeeds: { song: 0.5 }, tasks: [{ type: "sing", count: 1 }] };
+    expect(trackPlaybackSpeed(noPlay, "song", SPEED_TRACKS)).toBeNull();
+  });
+
+  it("treats a pool speed outside the offered options as 1", () => {
+    expect(trackPlaybackSpeed({ ...POOL, trackSpeeds: { song: 3 } }, "song", SPEED_TRACKS)).toBe(1);
   });
 });

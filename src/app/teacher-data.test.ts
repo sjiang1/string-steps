@@ -249,6 +249,30 @@ describe("aggregateTeacherReport", () => {
       { date: "2026-04-15", note: "much better" },
     ]);
   });
+
+  it("reports days fully practiced for each track of a rotating item", () => {
+    const input: AggregateInput = {
+      window: { startDate: "2026-04-15", endDate: "2026-04-16", bounded: false },
+      schedule: { "2026-04-15": "1", "2026-04-16": "1" },
+      plans: [
+        { id: "1", createdDate: "2026-04-15", checklist: [], items: [
+          { trackChoices: ["twinkle", "scale"], dice: false, perDay: 1,
+            tasks: [{ type: "sing", count: 1 }] } ] },
+      ],
+      tracks,
+      doneByDate: {
+        "2026-04-15": ["twinkle-sing-0"],
+        "2026-04-16": ["twinkle-sing-0"],
+      },
+      notesByDate: {},
+    };
+
+    const report = aggregateTeacherReport(input);
+    expect(report).toEqual([
+      { trackId: "twinkle", name: "Twinkle", progress: [], notes: [], rotationDays: 2 },
+      { trackId: "scale", name: "A Major Scale", progress: [], notes: [], rotationDays: 0 },
+    ]);
+  });
 });
 
 describe("noteKey", () => {
@@ -382,5 +406,17 @@ describe("composeTeacherEmail", () => {
     expect(signOff("  Mama Bear ")).toBe("— Mama Bear & Xiami");
     expect(signOff("")).toBe("— Xiami");
     expect(signOff("   ")).toBe("— Xiami");
+  });
+
+  it("writes days practiced for a rotating track", () => {
+    const email = composeTeacherEmail({
+      ...names,
+      report: [
+        { trackId: "p1", name: "Piece 1", progress: [], rotationDays: 3,
+          notes: [{ date: "2026-06-09", note: "smooth" }] },
+      ],
+      selectedKeys: new Set(["p1|2026-06-09"]),
+    });
+    expect(email).toContain("Piece 1\nPracticed fully on 3 days\n");
   });
 });
