@@ -19,6 +19,7 @@ export type PracticeItem = {
   dieChoices?: DieChoice[]; // required 1–6 entries when dice is true; face N = index N-1
   teacherNote?: string;
   speed?: number; // playback rate for the item's track; one of PLAYBACK_SPEEDS, unset = 1
+  perDay?: number; // rotating item: practice this many pool tracks per day (see rotation.ts)
 };
 
 export const PLAYBACK_SPEEDS = [0.5, 0.75, 1] as const;
