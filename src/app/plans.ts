@@ -157,6 +157,24 @@ export function mostRecentPastPracticePlanIdAsOf(
   return schedule[pastPracticeDates[pastPracticeDates.length - 1]];
 }
 
+// The plan a student practiced from on `date`: the scheduled plan, or — for a
+// linked account on a class day — the most recent practice plan before it (what
+// resolvePracticePlanForDate gave them that day). Null when there was nothing to
+// practice: a sick day, an unscheduled date, or a class day for the primary.
+export function practicePlanIdOn(
+  date: string,
+  schedule: PlanSchedule,
+  student: Student,
+): string | null {
+  const value = schedule[date];
+  if (value === undefined) return null;
+  if (!isNonPracticeDay(value)) return value;
+  if (student.kind === "linked" && isClassDay(value)) {
+    return mostRecentPastPracticePlanIdAsOf(date, schedule);
+  }
+  return null;
+}
+
 export async function resolvePracticePlanForDate(
   date: string,
   student: Student,

@@ -10,9 +10,9 @@ import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
 import { cookies } from "next/headers";
 import type { Plan, PracticeItem, PlanSchedule, Track } from "./plans";
-import { mostRecentPastPracticePlanIdAsOf } from "./plans";
+import { practicePlanIdOn } from "./plans";
 import { rhythms } from "./rhythms";
-import { isClassDay, isNonPracticeDay } from "./day-types";
+import { isNonPracticeDay } from "./day-types";
 import { todayLocal } from "./today";
 import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-activation";
 import { doneLogId, findPrimary, type Student } from "./students";
@@ -329,27 +329,15 @@ export async function getMonthProgress(
   for (const [date, value] of Object.entries(schedule)) {
     if (!date.startsWith(yearMonth)) continue;
 
-    if (isNonPracticeDay(value)) {
-      if (student.kind === "linked" && isClassDay(value)) {
-        const fallbackId = mostRecentPastPracticePlanIdAsOf(date, schedule);
-        const fallbackPlan = fallbackId
-          ? plans.find((p) => p.id === fallbackId) ?? null
-          : null;
-        if (fallbackPlan) {
-          const doneTasks = await getDoneTasks(date, student);
-          result[date] = { type: "practice", ...planProgress(fallbackPlan, doneTasks) };
-          continue;
-        }
-      }
+    // A linked account's class day resolves to the plan it practiced from.
+    const planId = practicePlanIdOn(date, schedule, student);
+    const plan = planId === null ? undefined : plans.find((p) => p.id === planId);
+    if (plan) {
+      const doneTasks = await getDoneTasks(date, student);
+      result[date] = { type: "practice", ...planProgress(plan, doneTasks) };
+    } else if (isNonPracticeDay(value)) {
       result[date] = { type: "non-practice", dayTypeId: value };
-      continue;
     }
-
-    const plan = plans.find((p) => p.id === value);
-    if (!plan) continue;
-
-    const doneTasks = await getDoneTasks(date, student);
-    result[date] = { type: "practice", ...planProgress(plan, doneTasks) };
   }
 
   return result;

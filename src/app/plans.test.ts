@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TEST_PRIMARY as PRIMARY, TEST_LINKED as LINKED } from "./test-support/people";
-import { itemDisplayName, itemPlaybackSpeed, primaryTrackId, rolledTrackId, trackPlaybackSpeed, type PracticeItem, type Track } from "./plans";
+import { itemDisplayName, itemPlaybackSpeed, primaryTrackId, practicePlanIdOn, rolledTrackId, trackPlaybackSpeed, type PracticeItem, type Track } from "./plans";
 
 async function loadPlans() {
   const mod = await import("./plans");
@@ -374,5 +374,29 @@ describe("trackPlaybackSpeed", () => {
 
   it("treats a pool speed outside the offered options as 1", () => {
     expect(trackPlaybackSpeed({ ...POOL, trackSpeeds: { song: 3 } }, "song", SPEED_TRACKS)).toBe(1);
+  });
+});
+
+describe("practicePlanIdOn", () => {
+  const SCHEDULE = {
+    "2026-10-12": "A",
+    "2026-10-13": "individual-class",
+    "2026-10-14": "B",
+    "2026-10-15": "sick",
+  };
+
+  it("gives a practice day's scheduled plan to anyone", () => {
+    expect(practicePlanIdOn("2026-10-14", SCHEDULE, PRIMARY)).toBe("B");
+    expect(practicePlanIdOn("2026-10-14", SCHEDULE, LINKED)).toBe("B");
+  });
+
+  it("gives a linked account the practice plan before a class day", () => {
+    expect(practicePlanIdOn("2026-10-13", SCHEDULE, LINKED)).toBe("A");
+  });
+
+  it("gives nothing for the primary student's class day, a sick day, or an unscheduled date", () => {
+    expect(practicePlanIdOn("2026-10-13", SCHEDULE, PRIMARY)).toBeNull();
+    expect(practicePlanIdOn("2026-10-15", SCHEDULE, LINKED)).toBeNull();
+    expect(practicePlanIdOn("2026-10-16", SCHEDULE, LINKED)).toBeNull();
   });
 });

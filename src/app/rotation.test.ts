@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type { Plan, PlanTask, PracticeItem } from "./plans";
 import { tapKey } from "./task-keys";
+import { TEST_LINKED as LINKED } from "./test-support/people";
 import {
   daysAgoLabel,
+  historyWithPlans,
   isRotating,
   lastFullyDoneDate,
   rotatingItemProgress,
@@ -196,5 +198,32 @@ describe("rotatingItemProgress", () => {
 
   it("does not overfill when more than perDay tracks are done", () => {
     expect(rotatingItemProgress(FOUR, fullKeys(["p1", "p2", "p3"]))).toEqual({ done: 4, total: 4 });
+  });
+});
+
+describe("historyWithPlans", () => {
+  it("judges a linked account's class day by the plan it practiced, after a task change", () => {
+    const playTwice: PlanTask[] = [{ type: "playWithTrack", count: 2 }];
+    const playFour: PlanTask[] = [{ type: "playWithTrack", count: 4 }];
+    const planA: Plan = {
+      id: "A",
+      createdDate: "2026-10-01",
+      items: [item(["p1", "p2", "p3", "p4"], 2, playTwice)],
+      checklist: [],
+    };
+    const planB: Plan = { ...planA, id: "B", items: [item(["p1", "p2", "p3", "p4"], 2, playFour)] };
+    const schedule = { "2026-10-12": "A", "2026-10-13": "individual-class", "2026-10-14": "B" };
+    // Mon: plan A, p3+p4. Tue (class day): the linked account practiced plan A, p1+p2.
+    const history = historyWithPlans(
+      [
+        { date: "2026-10-13", done: fullKeys(["p1", "p2"], playTwice) },
+        { date: "2026-10-12", done: fullKeys(["p3", "p4"], playTwice) },
+      ],
+      schedule,
+      [planA, planB],
+      LINKED,
+    );
+    // Wed, plan B raised play to ×4: Tuesday still counts as finished under plan A.
+    expect(suggestTracks(planB.items[0], history)).toEqual(["p3", "p4"]);
   });
 });

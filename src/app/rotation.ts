@@ -1,4 +1,5 @@
-import type { Plan, PlanTask, PracticeItem } from "./plans";
+import { practicePlanIdOn, type Plan, type PlanSchedule, type PlanTask, type PracticeItem } from "./plans";
+import type { Student } from "./students";
 import { doneCountForTask } from "./task-keys";
 
 // How far back the Practice page reads the log to rank a rotating item's tracks.
@@ -25,6 +26,21 @@ export function trackFullyDone(trackId: string, tasks: PlanTask[], done: string[
 
 // One past day of a student's log, with the plan that was scheduled that day.
 export type HistoryDay = { date: string; done: string[]; plan?: Plan };
+
+// Attaches to each logged day the plan the student practiced from that day,
+// including a linked account's class-day fallback, so each day is judged by
+// what it actually asked for.
+export function historyWithPlans(
+  history: { date: string; done: string[] }[],
+  schedule: PlanSchedule,
+  plans: Plan[],
+  student: Student,
+): HistoryDay[] {
+  return history.map((h) => {
+    const planId = practicePlanIdOn(h.date, schedule, student);
+    return { ...h, plan: plans.find((p) => p.id === planId) };
+  });
+}
 
 // A past day is judged by the tasks that day's plan asked for, so a task-list
 // change in a new plan doesn't restart the rotation.

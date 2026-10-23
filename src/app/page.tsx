@@ -17,11 +17,11 @@ import {
 } from "./actions";
 import {
   daysAgoLabel,
+  historyWithPlans,
   isRotating,
   lastFullyDoneDate,
   ROTATION_LOOKBACK_DAYS,
   suggestTracks,
-  type HistoryDay,
   type RotationView,
 } from "./rotation";
 import { todayLocal } from "./today";
@@ -92,10 +92,7 @@ export default async function Home() {
       getSchedule(),
       getPlans(),
     ]);
-    const days: HistoryDay[] = history.map((h) => ({
-      ...h,
-      plan: plans.find((p) => p.id === schedule[h.date]),
-    }));
+    const days = historyWithPlans(history, schedule, plans, activeStudent);
     for (const item of rotatingItems) {
       rotation[primaryTrackId(item)] = {
         suggested: suggestTracks(item, days),
