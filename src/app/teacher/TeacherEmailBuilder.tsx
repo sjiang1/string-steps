@@ -72,6 +72,13 @@ export default function TeacherEmailBuilder({
                 </span>
               )}
             </div>
+            {/* Done counts taps on every day, but only normal items set the
+                assigned count; a track that also sat in a rotation can go over. */}
+            {entry.rotationDays !== undefined && entry.progress.some((p) => p.done > p.total) && (
+              <p className="mt-1 text-xs text-zinc-500">
+                🔁 Includes practice from a rotating item, so the count can be higher than assigned.
+              </p>
+            )}
             {entry.notes.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {entry.notes.map((n) => {
