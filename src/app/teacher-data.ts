@@ -1,5 +1,6 @@
 import { isClassDay } from "./day-types";
 import { primaryTrackId, type Plan, type PlanSchedule, type Track } from "./plans";
+import { isRotating, trackFullyDone } from "./rotation";
 import { doneCountForTask } from "./task-keys";
 
 export type TeacherWindow = {
@@ -75,6 +76,7 @@ export type TrackReport = {
   name: string;
   progress: TaskTypeProgress[];
   notes: TrackNoteEntry[];
+  rotationDays?: number; // set only for tracks in a rotating item: days fully practiced
 };
 
 export type AggregateInput = {
@@ -108,6 +110,8 @@ export function aggregateTeacherReport(input: AggregateInput): TrackReport[] {
   const order: string[] = [];
   // trackId -> type -> summed target count (regular tasks only)
   const targets = new Map<string, Map<string, number>>();
+  // trackId -> dates a rotating item's track was fully practiced
+  const rotationDates = new Map<string, Set<string>>();
 
   for (const date of dates) {
     const planId = schedule[date];
@@ -116,6 +120,19 @@ export function aggregateTeacherReport(input: AggregateInput): TrackReport[] {
     if (plan === undefined) continue; // class/sick ids never match a plan id
 
     for (const item of plan.items) {
+      if (isRotating(item)) {
+        for (const trackId of item.trackChoices) {
+          if (!targets.has(trackId)) {
+            targets.set(trackId, new Map());
+            order.push(trackId);
+          }
+          if (!rotationDates.has(trackId)) rotationDates.set(trackId, new Set());
+          if (trackFullyDone(trackId, item.tasks, doneByDate[date] ?? [])) {
+            rotationDates.get(trackId)!.add(date);
+          }
+        }
+        continue;
+      }
       const trackId = primaryTrackId(item);
       if (!targets.has(trackId)) {
         targets.set(trackId, new Map());
@@ -153,7 +170,14 @@ export function aggregateTeacherReport(input: AggregateInput): TrackReport[] {
     }
 
     const name = tracks.find((t) => t.id === trackId)?.name ?? trackId;
-    return { trackId, name, progress, notes };
+    const rotation = rotationDates.get(trackId);
+    return {
+      trackId,
+      name,
+      progress,
+      notes,
+      ...(rotation ? { rotationDays: rotation.size } : {}),
+    };
   });
 }
 
@@ -186,6 +210,9 @@ export function composeTeacherEmail(input: ComposeInput): string {
       lines.push(
         track.progress.map((p) => `${p.label} ${p.done}/${p.total}`).join(" · "),
       );
+    }
+    if (track.rotationDays !== undefined) {
+      lines.push(`Practiced fully on ${track.rotationDays} day${track.rotationDays === 1 ? "" : "s"}`);
     }
     for (const n of selectedNotes) {
       lines.push(`${formatShort(n.date)} — "${n.note}"`);

@@ -237,7 +237,13 @@ export default function PlanEditor({
             <span>Remove die choices with unknown rhythms. </span>
           )}
           {errors.some((e) => e.reason === "duplicate-pool-track") && (
-            <span>Remove duplicate tracks from the item&rsquo;s pool.</span>
+            <span>Remove duplicate tracks from the item&rsquo;s pool. </span>
+          )}
+          {errors.some((e) => e.reason === "rotation-per-day") && (
+            <span>A rotating item must practice fewer tracks per day than its pool holds (at least 1). </span>
+          )}
+          {errors.some((e) => e.reason === "rotation-with-dice") && (
+            <span>An item can rotate or use the die, not both.</span>
           )}
         </p>
       )}

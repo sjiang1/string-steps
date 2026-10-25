@@ -33,11 +33,13 @@ export default function TaskList({
   tasks,
   taskTypes,
   initialDone,
+  onDoneChange,
 }: {
   trackId: string;
   tasks: PlanTask[];
   taskTypes: TaskTypeDef[];
   initialDone: string[];
+  onDoneChange?: (done: string[]) => void;
 }) {
   const [done, setDone] = useState<string[]>(initialDone);
   const [pending, setPending] = useState<Set<string>>(new Set());
@@ -60,6 +62,7 @@ export default function TaskList({
         next = current;
       }
       setDone(next);
+      onDoneChange?.(next);
       const afterDone = doneCountForTask(trackId, task, next);
       if (afterDone === task.count) {
         setTimeout(() => {

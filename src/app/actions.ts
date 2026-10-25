@@ -10,12 +10,13 @@ import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
 import { cookies } from "next/headers";
 import type { Plan, PracticeItem, PlanSchedule, Track } from "./plans";
-import { mostRecentPastPracticePlanIdAsOf } from "./plans";
+import { practicePlanIdOn } from "./plans";
 import { rhythms } from "./rhythms";
-import { isClassDay, isNonPracticeDay } from "./day-types";
+import { isNonPracticeDay } from "./day-types";
 import { todayLocal } from "./today";
 import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-activation";
 import { doneLogId, findPrimary, type Student } from "./students";
+import { isRotating, rotatingItemProgress } from "./rotation";
 import { doneCountForTask } from "./task-keys";
 
 const useRedis = !!process.env.KV_REST_API_URL;
@@ -253,6 +254,23 @@ export async function getDoneTasks(
   return keys;
 }
 
+// The student's done keys for the `days` dates before `beforeDate`, newest
+// first — the input for ranking a rotating item's tracks. The file fallback
+// reads sequentially because getDoneTasks may rewrite the shared log file.
+export async function getDoneHistory(
+  student: Student,
+  beforeDate: string,
+  days: number,
+): Promise<{ date: string; done: string[] }[]> {
+  const dates = Array.from({ length: days }, (_, i) => notesAddDays(beforeDate, -(i + 1)));
+  if (redis) {
+    return Promise.all(dates.map(async (date) => ({ date, done: await getDoneTasks(date, student) })));
+  }
+  const out: { date: string; done: string[] }[] = [];
+  for (const date of dates) out.push({ date, done: await getDoneTasks(date, student) });
+  return out;
+}
+
 export async function toggleTask(date: string, taskKey: string): Promise<string[]> {
   const student = await getActiveStudent();
   const logId = doneLogId(student, date);
@@ -292,6 +310,12 @@ export async function getMonthProgress(
     let finished = 0;
     let total = 0;
     for (const item of plan.items) {
+      if (isRotating(item)) {
+        const p = rotatingItemProgress(item, done);
+        finished += p.done;
+        total += p.total;
+        continue;
+      }
       for (const task of item.tasks) {
         total++;
         if (item.trackChoices.some((id) => doneCountForTask(id, task, done) === task.count)) {
@@ -305,27 +329,15 @@ export async function getMonthProgress(
   for (const [date, value] of Object.entries(schedule)) {
     if (!date.startsWith(yearMonth)) continue;
 
-    if (isNonPracticeDay(value)) {
-      if (student.kind === "linked" && isClassDay(value)) {
-        const fallbackId = mostRecentPastPracticePlanIdAsOf(date, schedule);
-        const fallbackPlan = fallbackId
-          ? plans.find((p) => p.id === fallbackId) ?? null
-          : null;
-        if (fallbackPlan) {
-          const doneTasks = await getDoneTasks(date, student);
-          result[date] = { type: "practice", ...planProgress(fallbackPlan, doneTasks) };
-          continue;
-        }
-      }
+    // A linked account's class day resolves to the plan it practiced from.
+    const planId = practicePlanIdOn(date, schedule, student);
+    const plan = planId === null ? undefined : plans.find((p) => p.id === planId);
+    if (plan) {
+      const doneTasks = await getDoneTasks(date, student);
+      result[date] = { type: "practice", ...planProgress(plan, doneTasks) };
+    } else if (isNonPracticeDay(value)) {
       result[date] = { type: "non-practice", dayTypeId: value };
-      continue;
     }
-
-    const plan = plans.find((p) => p.id === value);
-    if (!plan) continue;
-
-    const doneTasks = await getDoneTasks(date, student);
-    result[date] = { type: "practice", ...planProgress(plan, doneTasks) };
   }
 
   return result;

@@ -180,3 +180,47 @@ describe("PracticeTasksList playback speed", () => {
     expect(screen.queryByText(/🐢/)).toBeNull();
   });
 });
+
+describe("PracticeTasksList per-track speed in a 🎲 pool", () => {
+  const SONGS: Track[] = [
+    { id: "song", name: "Song", type: "audio", file: "/song.mp3" },
+    { id: "song2", name: "Song 2", type: "audio", file: "/song2.mp3" },
+  ];
+  const POOL_DIE: PracticeItem = {
+    trackChoices: ["song", "song2"],
+    tasks: [{ type: "playWithTrack", count: 1 }],
+    dice: true,
+    dieChoices: [
+      { kind: "track", trackId: "song" },
+      { kind: "track", trackId: "song2" },
+    ],
+    trackSpeeds: { song2: 0.5 },
+  };
+
+  function renderPool() {
+    return render(
+      <PracticeTasksList
+        items={[POOL_DIE]}
+        tracks={SONGS}
+        taskTypes={[]}
+        doneTasks={[]}
+        notesByTrack={{}}
+        activeStudent={LINKED}
+      />,
+    );
+  }
+
+  it("plays the rolled track at its own speed", () => {
+    localStorage.setItem("dieFace:song", "2");
+    const { container } = renderPool();
+    act(() => {});
+    expect(container.querySelector("audio")!.playbackRate).toBe(0.5);
+    expect(screen.getByText("🐢 0.5×")).toBeTruthy();
+  });
+
+  it("plays an unrolled pool's first track at its own speed (1× when unset)", () => {
+    const { container } = renderPool();
+    expect(container.querySelector("audio")!.playbackRate).toBe(1);
+    expect(screen.queryByText(/🐢/)).toBeNull();
+  });
+});
