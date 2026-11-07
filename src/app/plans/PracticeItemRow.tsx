@@ -300,7 +300,7 @@ export default function PracticeItemRow({
         </div>
       )}
 
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex w-fit items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={item.dice}
