@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -23,6 +22,7 @@ import { isTaskError, validatePlan } from "./plan-validation";
 import { nextAvailableTrackId } from "../track-id";
 import PracticeItemRow from "./PracticeItemRow";
 import TrackPicker from "./TrackPicker";
+import PrintPlanLink from "./PrintPlanLink";
 import { addPoolTrack, removePoolTrack, replacePoolTrack } from "./replace-item-track";
 
 export default function PlanEditor({
@@ -170,13 +170,7 @@ export default function PlanEditor({
               <span className="text-xs text-zinc-500">Save first</span>
             </span>
           ) : (
-            <Link
-              href={`/plans/print?id=${plan.id}`}
-              target="_blank"
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm"
-            >
-              🖨 Print
-            </Link>
+            <PrintPlanLink planId={plan.id} />
           ))}
       </div>
 

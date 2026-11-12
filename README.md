@@ -85,7 +85,7 @@ The **Calendar** tab shows each day at a glance — how much of that day's plan 
 
 The **Plans** tab is where the week's practice is built: create a plan, add practice items with their tasks (sing / play / focus drills), optionally give an item its own name (otherwise it is titled by its first track), give an item a pool of tracks and a die with its choice list, and choose the date it becomes active. Past plans are frozen so practice history stays intact. A new plan inherits the current plan's Get Ready checklist. Checklist changes are deliberately not editable here — see [Changing the checklist](#changing-the-checklist).
 
-**Print** opens the current plan as a one-page handout (`/plans/print?id=…`) and brings up the browser's print dialog, so the parent can print two copies for a lesson — one to hand the teacher, one to mark up — or save it as a PDF. It lists the created date, the Get Ready checklist, and every item with its tracks, tasks, speed, rotation, die choices and teacher note, with a blank margin beside each item for handwritten changes.
+**Print** (on the Practice page and in the plan editor) opens the current plan as a one-page handout (`/plans/print?id=…`) and brings up the browser's print dialog, so the parent can print two copies for a lesson — one to hand the teacher, one to mark up — or save it as a PDF. It lists the created date, the Get Ready checklist, and every item with its tracks, tasks, speed, rotation, die choices and teacher note, with a blank margin beside each item for handwritten changes.
 
 ### Track Notes
 

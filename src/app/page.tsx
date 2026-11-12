@@ -1,6 +1,7 @@
 import taskTypes from "@data/task-types.json";
 import checklistItems from "@data/checklist-items.json";
 import GetReadyChecklist from "./GetReadyChecklist";
+import PrintPlanLink from "./plans/PrintPlanLink";
 import PracticeTasksList from "./PracticeTasksList";
 import { primaryTrackId, resolvePracticePlanForDate } from "./plans";
 import {
@@ -105,15 +106,18 @@ export default async function Home() {
 
   return (
     <div className="min-h-full bg-zinc-50 font-sans">
-      <div className="px-8 pt-8 pb-4">
-        <h1 className="text-2xl font-bold mb-1">{primary.name}&apos;s Practice</h1>
-        <p className="text-zinc-500 mb-1">
-          Teacher: {teacher.name} &middot; {today}
-        </p>
-        {statePhrase}
-        {plan.description && (
-          <p className="text-zinc-500">{plan.description}</p>
-        )}
+      <div className="flex flex-wrap items-start justify-between gap-2 px-8 pt-8 pb-4">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">{primary.name}&apos;s Practice</h1>
+          <p className="text-zinc-500 mb-1">
+            Teacher: {teacher.name} &middot; {today}
+          </p>
+          {statePhrase}
+          {plan.description && (
+            <p className="text-zinc-500">{plan.description}</p>
+          )}
+        </div>
+        {activeStudent.kind === "primary" && <PrintPlanLink planId={plan.id} />}
       </div>
 
       <div className="bg-zinc-50 px-8 pt-4 pb-4 border-b border-zinc-200">
