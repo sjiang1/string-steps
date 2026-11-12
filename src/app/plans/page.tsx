@@ -1,20 +1,10 @@
 import Link from "next/link";
-import { getDoneTasks, getPlans, getPrimaryStudent, getSchedule, getTracks, isPlanFrozen } from "../actions";
-import { isNonPracticeDay } from "../day-types";
-import { mostRecentPastPracticePlanIdAsOf } from "../plans";
+import { getActiveStudent, getDoneTasks, getPlans, getPrimaryStudent, getSchedule, getTracks, isPlanFrozen } from "../actions";
 import { todayLocal } from "../today";
+import { resolveActivePlanId } from "./active-plan";
 import PlanEditor from "./PlanEditor";
 import NewPlanButton from "./NewPlanButton";
 import { defaultActiveFrom } from "./schedule-activation";
-
-function resolveActivePlanId(today: string, schedule: Record<string, string>): string | null {
-  if (schedule[today] && !isNonPracticeDay(schedule[today])) return schedule[today];
-  const futurePracticeDates = Object.keys(schedule)
-    .filter((d) => d > today && !isNonPracticeDay(schedule[d]))
-    .sort();
-  if (futurePracticeDates.length > 0) return schedule[futurePracticeDates[0]];
-  return mostRecentPastPracticePlanIdAsOf(today, schedule);
-}
 
 export default async function PlansPage({
   searchParams,
@@ -23,12 +13,13 @@ export default async function PlansPage({
 }) {
   const today = todayLocal();
   const primary = await getPrimaryStudent();
-  const [plans, schedule, tracks, params, doneToday] = await Promise.all([
+  const [plans, schedule, tracks, params, doneToday, active] = await Promise.all([
     getPlans(),
     getSchedule(),
     getTracks(),
     searchParams,
     getDoneTasks(today, primary),
+    getActiveStudent(),
   ]);
   const defaultActive = defaultActiveFrom(schedule, today, doneToday.length > 0);
   const requestedPlan = params.id ? plans.find((p) => p.id === params.id) ?? null : null;
@@ -64,7 +55,7 @@ export default async function PlansPage({
           )}
         </div>
       ) : activePlan ? (
-        <PlanEditor plan={activePlan} tracks={tracks} frozen={frozen} />
+        <PlanEditor plan={activePlan} tracks={tracks} frozen={frozen} printable={active.kind === "primary"} />
       ) : (
         <p className="text-zinc-600">No plan yet. Tap &quot;+ New plan&quot; to create one.</p>
       )}

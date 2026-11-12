@@ -22,16 +22,20 @@ import { isTaskError, validatePlan } from "./plan-validation";
 import { nextAvailableTrackId } from "../track-id";
 import PracticeItemRow from "./PracticeItemRow";
 import TrackPicker from "./TrackPicker";
+import PrintPlanLink from "./PrintPlanLink";
 import { addPoolTrack, removePoolTrack, replacePoolTrack } from "./replace-item-track";
 
 export default function PlanEditor({
   plan,
   tracks,
   frozen,
+  printable = false,
 }: {
   plan: Plan;
   tracks: Track[];
   frozen: boolean;
+  /** Show the Print button (primary account only). */
+  printable?: boolean;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Plan>(plan);
@@ -124,6 +128,9 @@ export default function PlanEditor({
   }
 
   const disabled = frozen || saving;
+  // Edits live in `draft` until Save, and the print page reads the saved plan,
+  // so printing an edited draft would silently print the old version.
+  const unsaved = draft !== plan;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -144,15 +151,28 @@ export default function PlanEditor({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-zinc-500">
-        Plan {draft.id}
-        {draft.createdDate && <> · Created {draft.createdDate}</>}
-        {frozen && (
-          <span className="ml-2 rounded bg-zinc-200 px-2 py-0.5 text-xs">
-            Frozen — already practiced or has a note
-          </span>
-        )}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-zinc-500">
+          Plan {draft.id}
+          {draft.createdDate && <> · Created {draft.createdDate}</>}
+          {frozen && (
+            <span className="ml-2 rounded bg-zinc-200 px-2 py-0.5 text-xs">
+              Frozen — already practiced or has a note
+            </span>
+          )}
+        </p>
+        {printable &&
+          (unsaved ? (
+            <span className="flex items-center gap-2 text-sm">
+              <span className="rounded-md border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-zinc-400">
+                🖨 Print
+              </span>
+              <span className="text-xs text-zinc-500">Save first</span>
+            </span>
+          ) : (
+            <PrintPlanLink planId={plan.id} />
+          ))}
+      </div>
 
       <label className="block">
         <span className="block text-sm font-medium mb-1">Description</span>

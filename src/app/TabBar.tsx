@@ -13,6 +13,9 @@ export default function TabBar({
 }) {
   const pathname = usePathname();
 
+  // The printable plan opens in its own tab; it has no app chrome.
+  if (pathname.startsWith("/plans/print")) return null;
+
   const tabs = [
     { href: "/", label: "Practice", icon: "♪" },
     { href: "/calendar", label: "Calendar", icon: "▦" },

@@ -23,3 +23,12 @@ body {
   100% { transform: translateX(400%); }
 }
 
+
+/* Printing: the app scrolls inside a locked-height wrapper (see layout.tsx),
+   which would clip the printout to one page. Let the document flow instead. */
+@media print {
+  @page { margin: 0.6in; }
+  body { height: auto; display: block; }
+  body > div { overflow: visible; }
+  nav { display: none; }
+}
