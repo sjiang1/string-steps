@@ -1,20 +1,10 @@
 import Link from "next/link";
-import { getDoneTasks, getPlans, getPrimaryStudent, getSchedule, getTracks, isPlanFrozen } from "../actions";
-import { isNonPracticeDay } from "../day-types";
-import { mostRecentPastPracticePlanIdAsOf } from "../plans";
+import { getActiveStudent, getDoneTasks, getPlans, getPrimaryStudent, getSchedule, getTracks, isPlanFrozen } from "../actions";
 import { todayLocal } from "../today";
+import { resolveActivePlanId } from "./active-plan";
 import PlanEditor from "./PlanEditor";
 import NewPlanButton from "./NewPlanButton";
 import { defaultActiveFrom } from "./schedule-activation";
-
-function resolveActivePlanId(today: string, schedule: Record<string, string>): string | null {
-  if (schedule[today] && !isNonPracticeDay(schedule[today])) return schedule[today];
-  const futurePracticeDates = Object.keys(schedule)
-    .filter((d) => d > today && !isNonPracticeDay(schedule[d]))
-    .sort();
-  if (futurePracticeDates.length > 0) return schedule[futurePracticeDates[0]];
-  return mostRecentPastPracticePlanIdAsOf(today, schedule);
-}
 
 export default async function PlansPage({
   searchParams,
@@ -23,12 +13,13 @@ export default async function PlansPage({
 }) {
   const today = todayLocal();
   const primary = await getPrimaryStudent();
-  const [plans, schedule, tracks, params, doneToday] = await Promise.all([
+  const [plans, schedule, tracks, params, doneToday, active] = await Promise.all([
     getPlans(),
     getSchedule(),
     getTracks(),
     searchParams,
     getDoneTasks(today, primary),
+    getActiveStudent(),
   ]);
   const defaultActive = defaultActiveFrom(schedule, today, doneToday.length > 0);
   const requestedPlan = params.id ? plans.find((p) => p.id === params.id) ?? null : null;
@@ -42,7 +33,18 @@ export default async function PlansPage({
     <div className="min-h-full bg-zinc-50 p-8 font-sans">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Plans</h1>
-        <NewPlanButton sourcePlan={activePlan ?? scheduledPlan} defaultActiveFrom={defaultActive} />
+        <div className="flex items-center gap-2">
+          {activePlan && active.kind === "primary" && (
+            <Link
+              href={`/plans/print?id=${activePlan.id}`}
+              target="_blank"
+              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm"
+            >
+              🖨 Print
+            </Link>
+          )}
+          <NewPlanButton sourcePlan={activePlan ?? scheduledPlan} defaultActiveFrom={defaultActive} />
+        </div>
       </div>
       {idNotFound ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm">

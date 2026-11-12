@@ -85,6 +85,8 @@ The **Calendar** tab shows each day at a glance — how much of that day's plan 
 
 The **Plans** tab is where the week's practice is built: create a plan, add practice items with their tasks (sing / play / focus drills), optionally give an item its own name (otherwise it is titled by its first track), give an item a pool of tracks and a die with its choice list, and choose the date it becomes active. Past plans are frozen so practice history stays intact. A new plan inherits the current plan's Get Ready checklist. Checklist changes are deliberately not editable here — see [Changing the checklist](#changing-the-checklist).
 
+**Print** opens the current plan as a one-page handout (`/plans/print?id=…`) and brings up the browser's print dialog, so the parent can print two copies for a lesson — one to hand the teacher, one to mark up — or save it as a PDF. It lists the created date, the Get Ready checklist, and every item with its tracks, tasks, speed, rotation, die choices and teacher note, with a blank margin beside each item for handwritten changes.
+
 ### Track Notes
 
 While practicing, the student can add a short note to any track (how it went, what was tricky). Notes are saved per track per day and feed the Teacher view.
@@ -114,7 +116,7 @@ The four tabs form a loop around each lesson:
 1. **Plans** — during or after a lesson, the parent builds that week's plan from the teacher's feedback. A new plan starts from the current one: swap out tracks, add or adjust tasks, and pick the date it becomes active.
 2. **Practice** — each day the student opens that day's practice, runs the checklist, works through each track's tasks, marks them done, and adds track notes.
 3. **Calendar** — shows the month's practice at a glance; page back to review past months.
-4. **Teacher** — at the next lesson the teacher reviews what was practiced and the notes since last time, and gives the feedback that shapes the next plan — back to step 1.
+4. **Teacher** — at the next lesson the parent brings a printed copy of the plan to adjust together, and the teacher reviews what was practiced and the notes since last time, and gives the feedback that shapes the next plan — back to step 1.
 
 ## Local Development
 
