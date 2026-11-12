@@ -54,9 +54,9 @@ function TrackName({ item, trackId, tracks }: { item: PracticeItem; trackId: str
   const track = tracks.find((t) => t.id === trackId);
   const speed = trackPlaybackSpeed(item, trackId, tracks);
   return (
-    <span className="whitespace-nowrap">
+    <span>
       {track?.name ?? trackId}
-      {speed !== null && speed !== 1 && ` (${speed}×)`}
+      {speed !== null && speed !== 1 && `\u00a0(${speed}×)`}
       {track?.type === "video" && (
         <span className="ml-1 rounded border border-zinc-400 px-1 text-[10px] uppercase text-zinc-600 align-middle">
           video
@@ -108,7 +108,7 @@ export default function PrintablePlan({
           {plan.items.map((item, i) => (
             <li
               key={`${item.trackChoices[0]}-${i}`}
-              className="grid grid-cols-[1fr_42%] gap-3 border-t border-zinc-300 py-2.5 break-inside-avoid"
+              className="grid grid-cols-[minmax(0,1fr)_42%] gap-3 border-t border-zinc-300 py-2.5 break-inside-avoid"
             >
               <div>
                 <h3 className="text-[15px] font-bold">
