@@ -33,18 +33,7 @@ export default async function PlansPage({
     <div className="min-h-full bg-zinc-50 p-8 font-sans">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Plans</h1>
-        <div className="flex items-center gap-2">
-          {activePlan && active.kind === "primary" && (
-            <Link
-              href={`/plans/print?id=${activePlan.id}`}
-              target="_blank"
-              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm"
-            >
-              🖨 Print
-            </Link>
-          )}
-          <NewPlanButton sourcePlan={activePlan ?? scheduledPlan} defaultActiveFrom={defaultActive} />
-        </div>
+        <NewPlanButton sourcePlan={activePlan ?? scheduledPlan} defaultActiveFrom={defaultActive} />
       </div>
       {idNotFound ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm">
@@ -66,7 +55,7 @@ export default async function PlansPage({
           )}
         </div>
       ) : activePlan ? (
-        <PlanEditor plan={activePlan} tracks={tracks} frozen={frozen} />
+        <PlanEditor plan={activePlan} tracks={tracks} frozen={frozen} printable={active.kind === "primary"} />
       ) : (
         <p className="text-zinc-600">No plan yet. Tap &quot;+ New plan&quot; to create one.</p>
       )}
