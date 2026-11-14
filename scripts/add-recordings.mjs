@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Redis } from "@upstash/redis";
 import { put } from "@vercel/blob";
-import { trackFromFilename } from "./recordings.mjs";
+import { planRecordings } from "./recordings.mjs";
 
 const EXECUTE = process.argv.includes("--execute");
 const RECORDINGS_DIR = join(process.cwd(), "recordings");
@@ -23,26 +23,18 @@ async function main() {
   const blobs = (await redis.get("tracks:blobs")) ?? {};
   const existingIds = new Set(tracks.map((t) => t.id));
 
-  const files = readdirSync(RECORDINGS_DIR)
-    .filter((f) => !f.startsWith("."))
-    .sort();
+  const files = readdirSync(RECORDINGS_DIR);
+  const { toAdd, skipped } = planRecordings(files, existingIds);
 
   console.log(
     `${files.length} files in recordings/; mode=${EXECUTE ? "EXECUTE" : "DRY-RUN"}`,
   );
-
-  const toAdd = [];
-  for (const file of files) {
-    const track = trackFromFilename(file); // throws on unknown extension
-    if (existingIds.has(track.id)) {
-      console.log(`- skip ${track.id} (already in tracks:list)`);
-      continue;
-    }
+  for (const { file, reason } of skipped) console.log(`- skip ${file} (${reason})`);
+  for (const { track } of toAdd) {
     console.log(`- add  ${track.id} -> blob ${track.blobPathname} (${track.contentType})`);
-    toAdd.push({ file, track });
   }
 
-  console.log(`\n${toAdd.length} to add; ${files.length - toAdd.length} skipped.`);
+  console.log(`\n${toAdd.length} to add; ${skipped.length} skipped.`);
 
   if (!EXECUTE) {
     console.log("DRY-RUN complete. Re-run with --execute to upload + write Redis.");
