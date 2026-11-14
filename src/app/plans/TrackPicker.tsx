@@ -60,19 +60,22 @@ export default function TrackPicker({
               aria-labelledby="place-at-label"
               className="flex rounded-md border border-zinc-300 p-0.5"
             >
+              {/* Native radios (visually hidden) so the group gets one Tab stop
+                  and arrow-key selection from the browser; the label is the segment. */}
               {PLACEMENTS.map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={placement === value}
-                  onClick={() => onPlacementChange(value)}
-                  className={`rounded px-3 py-1 ${
-                    placement === value ? "bg-zinc-800 text-white" : "text-zinc-600 hover:bg-zinc-100"
-                  }`}
-                >
-                  {label}
-                </button>
+                <label key={value}>
+                  <input
+                    type="radio"
+                    name="place-at"
+                    value={value}
+                    checked={placement === value}
+                    onChange={() => onPlacementChange(value)}
+                    className="peer sr-only"
+                  />
+                  <span className="block cursor-pointer rounded px-3 py-1 text-zinc-600 hover:bg-zinc-100 peer-checked:bg-zinc-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">
+                    {label}
+                  </span>
+                </label>
               ))}
             </div>
           </div>

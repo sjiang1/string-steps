@@ -85,6 +85,17 @@ describe("PlanEditor add-practice placement", () => {
     expect(itemNames()).toEqual(["Track B", "Track A"]);
   });
 
+  it("uses native radios so the group gets arrow-key navigation and one Tab stop", () => {
+    render(<PlanEditor plan={ONE_ITEM_PLAN} tracks={TRACKS} frozen={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add practice" }));
+    const top = screen.getByRole("radio", { name: "Top" }) as HTMLInputElement;
+    const bottom = screen.getByRole("radio", { name: "Bottom" }) as HTMLInputElement;
+    expect(bottom.checked).toBe(true);
+    fireEvent.click(top);
+    expect(top.checked).toBe(true);
+    expect(bottom.checked).toBe(false);
+  });
+
   it("remembers the chosen placement for the next add", () => {
     render(<PlanEditor plan={ONE_ITEM_PLAN} tracks={TRACKS} frozen={false} />);
     addPractice("Track B", "Top");
