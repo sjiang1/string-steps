@@ -259,6 +259,7 @@ export default function PlanEditor({
         onRevert={onRevert}
         disabled={disabled}
         saving={saving}
+        invalid={errors.length > 0}
         problems={problems}
       />
 

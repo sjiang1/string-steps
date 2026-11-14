@@ -7,7 +7,8 @@ import { useState } from "react";
  * view while the plan scrolls. It is `position: sticky` inside the app's scroll
  * wrapper rather than `fixed` — see the note in layout.tsx about iPad toolbars.
  * Hovering an icon shows its label; clicking acts. A ⚠ button appears when the
- * plan has problems and opens a popover with the messages.
+ * plan has problems and opens a popover with the messages. Only validation
+ * problems block Save: a failed save must stay retryable.
  */
 export default function PlanActionBar({
   onAdd,
@@ -15,6 +16,7 @@ export default function PlanActionBar({
   onRevert,
   disabled,
   saving,
+  invalid,
   problems,
 }: {
   onAdd: () => void;
@@ -23,7 +25,9 @@ export default function PlanActionBar({
   /** Frozen plan or save in flight: nothing can be edited. */
   disabled: boolean;
   saving: boolean;
-  /** Validation errors and/or the last save failure; Save is blocked while any exist. */
+  /** The draft fails validation, so Save is blocked. */
+  invalid: boolean;
+  /** Validation errors and/or the last save failure, shown behind ⚠. */
   problems: string[];
 }) {
   const [showProblems, setShowProblems] = useState(false);
@@ -64,7 +68,7 @@ export default function PlanActionBar({
           <IconButton
             label={saving ? "Saving…" : "Save"}
             onClick={onSave}
-            disabled={disabled || hasProblems}
+            disabled={disabled || invalid}
             tone="primary"
           >
             💾
