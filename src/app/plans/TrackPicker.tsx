@@ -3,10 +3,19 @@
 import { useState } from "react";
 import type { Track } from "../plans";
 
+export type Placement = "top" | "bottom";
+
+const PLACEMENTS: [Placement, string][] = [
+  ["top", "Top"],
+  ["bottom", "Bottom"],
+];
+
 export default function TrackPicker({
   tracks,
   inPlan,
   heading = "Add track",
+  placement,
+  onPlacementChange,
   onPick,
   onCreate,
   onClose,
@@ -14,6 +23,10 @@ export default function TrackPicker({
   tracks: Track[];
   inPlan: string[];
   heading?: string;
+  // When both are provided, a "Place at: Top / Bottom" control appears. Only
+  // meaningful when the pick becomes a new practice item (not a pool edit).
+  placement?: Placement;
+  onPlacementChange?: (placement: Placement) => void;
   onPick: (track: Track) => void;
   // When provided, the search box doubles as a "create a no-track practice"
   // field: if the typed name matches no existing track, a create row appears.
@@ -38,6 +51,32 @@ export default function TrackPicker({
           <h3 className="text-lg font-semibold">{heading}</h3>
           <button onClick={onClose} aria-label="Close" className="text-zinc-500">×</button>
         </div>
+
+        {placement && onPlacementChange && (
+          <div className="mb-3 flex items-center gap-2 text-sm">
+            <span id="place-at-label" className="text-zinc-600">Place at</span>
+            <div
+              role="radiogroup"
+              aria-labelledby="place-at-label"
+              className="flex rounded-md border border-zinc-300 p-0.5"
+            >
+              {PLACEMENTS.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={placement === value}
+                  onClick={() => onPlacementChange(value)}
+                  className={`rounded px-3 py-1 ${
+                    placement === value ? "bg-zinc-800 text-white" : "text-zinc-600 hover:bg-zinc-100"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <input
           type="text"

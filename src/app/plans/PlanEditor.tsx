@@ -21,7 +21,7 @@ import { savePlan } from "../actions";
 import { isTaskError, validatePlan, type PlanValidationError } from "./plan-validation";
 import { nextAvailableTrackId } from "../track-id";
 import PracticeItemRow from "./PracticeItemRow";
-import TrackPicker from "./TrackPicker";
+import TrackPicker, { type Placement } from "./TrackPicker";
 import PrintPlanLink from "./PrintPlanLink";
 import PlanActionBar from "./PlanActionBar";
 import { addPoolTrack, removePoolTrack, replacePoolTrack } from "./replace-item-track";
@@ -59,6 +59,9 @@ export default function PlanEditor({
     | { mode: "add-to-pool"; index: number }
     | { mode: "replace-pool-track"; index: number; trackId: string }
   >(null);
+  // Where a newly added practice item goes. Remembered while the editor is
+  // open so several new pieces in a row all land at the same end.
+  const [placement, setPlacement] = useState<Placement>("bottom");
   // Local copy of the catalog plus any not-yet-saved reference tracks created
   // inline ("add custom practice"). We don't router.refresh() to surface a new
   // track because that would reset the unsaved `draft` (see the effect that
@@ -102,8 +105,9 @@ export default function PlanEditor({
         items: replacePoolTrack(draft.items, picker.index, picker.trackId, trackId),
       });
     } else {
+      const item = { trackChoices: [trackId], tasks: [], dice: false };
       update({
-        items: [...draft.items, { trackChoices: [trackId], tasks: [], dice: false }],
+        items: placement === "top" ? [item, ...draft.items] : [...draft.items, item],
       });
     }
     setPicker(null);
@@ -278,6 +282,8 @@ export default function PlanEditor({
                 ? "Add track to pool"
                 : "Change track"
           }
+          placement={picker.mode === "add" ? placement : undefined}
+          onPlacementChange={picker.mode === "add" ? setPlacement : undefined}
           onClose={() => setPicker(null)}
           onPick={(t) => applyTrackToPlan(t.id)}
           onCreate={onCreateReferenceTrack}
