@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { trackFromFilename } from "./recordings.mjs";
+import { trackFromFilename, planRecordings } from "./recordings.mjs";
 
 describe("trackFromFilename", () => {
   it("derives an audio track from an .m4a filename", () => {
@@ -27,5 +27,22 @@ describe("trackFromFilename", () => {
   });
   it("throws on an unknown extension", () => {
     expect(() => trackFromFilename("note.wav")).toThrow();
+  });
+});
+
+describe("planRecordings", () => {
+  it("adds new files, skips registered ids, and skips unsupported extensions without throwing", () => {
+    const files = ["new_song.m4a", "already_there.mp3", "raw_clip.MOV", ".DS_Store"];
+    const { toAdd, skipped } = planRecordings(files, new Set(["already_there"]));
+    expect(toAdd.map((x) => x.file)).toEqual(["new_song.m4a"]);
+    expect(toAdd[0].track.id).toBe("new_song");
+    expect(skipped).toEqual([
+      { file: "already_there.mp3", reason: "already in tracks:list" },
+      { file: "raw_clip.MOV", reason: "unsupported extension .MOV — convert videos to .mp4 first" },
+    ]);
+  });
+  it("sorts files so output is deterministic", () => {
+    const { toAdd } = planRecordings(["b.m4a", "a.m4a"], new Set());
+    expect(toAdd.map((x) => x.file)).toEqual(["a.m4a", "b.m4a"]);
   });
 });
