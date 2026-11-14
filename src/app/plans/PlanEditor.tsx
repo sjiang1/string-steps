@@ -18,12 +18,24 @@ import {
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { primaryTrackId, type Plan, type Track } from "../plans";
 import { savePlan } from "../actions";
-import { isTaskError, validatePlan } from "./plan-validation";
+import { isTaskError, validatePlan, type PlanValidationError } from "./plan-validation";
 import { nextAvailableTrackId } from "../track-id";
 import PracticeItemRow from "./PracticeItemRow";
 import TrackPicker from "./TrackPicker";
 import PrintPlanLink from "./PrintPlanLink";
+import PlanActionBar from "./PlanActionBar";
 import { addPoolTrack, removePoolTrack, replacePoolTrack } from "./replace-item-track";
+
+const PROBLEM_MESSAGES: [PlanValidationError["reason"], string][] = [
+  ["empty-focus", "Fill in every focus task\u2019s sub-part label."],
+  ["duplicate", "Remove duplicate tasks (same action + sub-part)."],
+  ["die-choices-count", "Give every die item 1\u20136 choices."],
+  ["die-track-not-in-pool", "Die choices can only use tracks from the item\u2019s pool."],
+  ["die-rhythm-unknown", "Remove die choices with unknown rhythms."],
+  ["duplicate-pool-track", "Remove duplicate tracks from the item\u2019s pool."],
+  ["rotation-per-day", "A rotating item must practice fewer tracks per day than its pool holds (at least 1)."],
+  ["rotation-with-dice", "An item can rotate or use the die, not both."],
+];
 
 export default function PlanEditor({
   plan,
@@ -132,6 +144,15 @@ export default function PlanEditor({
   // so printing an edited draft would silently print the old version.
   const unsaved = draft !== plan;
 
+  // One human-readable line per kind of validation error, plus the last save
+  // failure, shown behind the ⚠ in the action bar.
+  const problems = useMemo(() => {
+    const seen = new Set(errors.map((e) => e.reason));
+    const messages = PROBLEM_MESSAGES.filter(([reason]) => seen.has(reason)).map(([, m]) => m);
+    if (error) messages.push(error);
+    return messages;
+  }, [errors, error]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
@@ -230,62 +251,16 @@ export default function PlanEditor({
         {draft.items.length === 0 && (
           <p className="text-sm text-zinc-500">No tracks yet.</p>
         )}
-        <button
-          onClick={() => setPicker({ mode: "add" })}
-          disabled={disabled}
-          className="rounded-md border border-dashed border-zinc-400 px-4 py-2 text-sm disabled:text-zinc-300"
-        >
-          + Add practice
-        </button>
       </div>
 
-      {errors.length > 0 && (
-        <p className="text-sm text-red-600">
-          {errors.some((e) => e.reason === "empty-focus") && (
-            <span>Fill in every focus task&rsquo;s sub-part label. </span>
-          )}
-          {errors.some((e) => e.reason === "duplicate") && (
-            <span>Remove duplicate tasks (same action + sub-part). </span>
-          )}
-          {errors.some((e) => e.reason === "die-choices-count") && (
-            <span>Give every die item 1–6 choices. </span>
-          )}
-          {errors.some((e) => e.reason === "die-track-not-in-pool") && (
-            <span>Die choices can only use tracks from the item&rsquo;s pool. </span>
-          )}
-          {errors.some((e) => e.reason === "die-rhythm-unknown") && (
-            <span>Remove die choices with unknown rhythms. </span>
-          )}
-          {errors.some((e) => e.reason === "duplicate-pool-track") && (
-            <span>Remove duplicate tracks from the item&rsquo;s pool. </span>
-          )}
-          {errors.some((e) => e.reason === "rotation-per-day") && (
-            <span>A rotating item must practice fewer tracks per day than its pool holds (at least 1). </span>
-          )}
-          {errors.some((e) => e.reason === "rotation-with-dice") && (
-            <span>An item can rotate or use the die, not both.</span>
-          )}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        <button
-          onClick={onSave}
-          disabled={disabled || errors.length > 0}
-          className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:bg-zinc-300"
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
-        <button
-          onClick={onRevert}
-          disabled={disabled}
-          className="rounded-md border border-zinc-300 px-4 py-2 disabled:text-zinc-400"
-        >
-          Revert
-        </button>
-      </div>
-
-      {error && <p className="text-red-600">{error}</p>}
+      <PlanActionBar
+        onAdd={() => setPicker({ mode: "add" })}
+        onSave={onSave}
+        onRevert={onRevert}
+        disabled={disabled}
+        saving={saving}
+        problems={problems}
+      />
 
       {picker && (
         <TrackPicker
