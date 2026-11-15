@@ -7,7 +7,7 @@ let dir: string;
 let file: string;
 
 beforeEach(() => {
-  // Fresh module per test so TRACK_BLOBS_JSON_PATH is read for this test's file.
+  // Fresh module per test: storage.ts decides Redis-or-file at import time.
   vi.resetModules();
   dir = mkdtempSync(join(tmpdir(), "track-blobs-test-"));
   file = join(dir, "track-blobs.json");
