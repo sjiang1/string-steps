@@ -20,60 +20,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Redis } from "@upstash/redis";
 import { put, del } from "@vercel/blob";
+import { needsReencode, ffmpegArgs, newPathnameFor, atomsAreFaststart } from "./video-recipe.mjs";
 
 const EXECUTE = process.argv.includes("--execute");
-
-// A served video must stream cleanly: faststart (moov at front) and a sane
-// bitrate. The ffmpeg recipe yields ~1.2 Mbps; the bad iOS files were 5.5–11.5.
-export const BITRATE_CEILING = 2_500_000;
-
-export function needsReencode({ faststart, bitrate }) {
-  if (!faststart) return true;
-  if (typeof bitrate === "number" && bitrate > BITRATE_CEILING) return true;
-  return false;
-}
-
-// Mirrors the README ffmpeg recipe, but caps height at 720 WITHOUT upscaling
-// smaller sources (min(720,ih)). The comma in min() is escaped for ffmpeg's
-// filtergraph parser since this is passed as a single argv element.
-export function ffmpegArgs(inPath, outPath) {
-  return [
-    "-y", "-loglevel", "error",
-    "-i", inPath,
-    "-vcodec", "libx264", "-crf", "28", "-preset", "medium",
-    "-vf", "scale=-2:min(720\\,ih)",
-    "-c:a", "aac", "-b:a", "128k",
-    "-movflags", "+faststart",
-    outPath,
-  ];
-}
-
-// New, cache-busting pathname. If the video already lives at the target path
-// (e.g. a prior re-encode), add a suffix so the URL still changes.
-export function newPathnameFor(id, oldPathname) {
-  const target = `videos/${id}.mp4`;
-  return target === oldPathname ? `videos/${id}-reencoded.mp4` : target;
-}
-
-function atomsAreFaststart(buf) {
-  let o = 0;
-  const seq = [];
-  while (o + 8 <= buf.length && seq.length < 8) {
-    let size = buf.readUInt32BE(o);
-    const type = buf.toString("latin1", o + 4, o + 8);
-    if (!/^[ -~]{4}$/.test(type)) break;
-    seq.push(type);
-    if (size === 1) {
-      if (o + 16 > buf.length) break;
-      size = Number(buf.readBigUInt64BE(o + 8));
-    }
-    if (size < 8) break;
-    o += size;
-  }
-  const m = seq.indexOf("moov");
-  const d = seq.indexOf("mdat");
-  return m > -1 && (d < 0 || m < d);
-}
 
 async function inspectVideo(url) {
   // faststart: read the first 256 KB and check moov-vs-mdat order

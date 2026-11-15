@@ -1,6 +1,5 @@
 "use server";
 
-import { Redis } from "@upstash/redis";
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import scheduleData from "@data/plan-schedule.json";
@@ -18,14 +17,8 @@ import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-act
 import { doneLogId, findPrimary, type Student } from "./students";
 import { isRotating, rotatingItemProgress } from "./rotation";
 import { doneCountForTask } from "./task-keys";
-
-const useRedis = !!process.env.KV_REST_API_URL;
-const redis = useRedis
-  ? new Redis({
-      url: process.env.KV_REST_API_URL!,
-      token: process.env.KV_REST_API_TOKEN!,
-    })
-  : null;
+import { redis, readJson, writeJson } from "./storage";
+import { getTrackBlobs, setTrackBlobUrl } from "./track-blobs";
 
 const LOG_PATH = process.env.PRACTICE_LOG_PATH ?? join(process.cwd(), "data/practice-log.json");
 const NOTES_PATH = process.env.NOTES_LOG_PATH ?? join(process.cwd(), "data/notes-log.json");
@@ -33,7 +26,6 @@ const NOTES_PATH = process.env.NOTES_LOG_PATH ?? join(process.cwd(), "data/notes
 const PLANS_KEY = "plans:list";
 const SCHEDULE_KEY = "schedule:map";
 const TRACKS_KEY = "tracks:list";
-const TRACK_BLOBS_KEY = "tracks:blobs";
 const CHECKLIST_BLOBS_KEY = "checklist:blobs";
 const STUDENTS_KEY = "students:list";
 const TEACHER_KEY = "teacher:info";
@@ -41,7 +33,6 @@ const TEACHER_KEY = "teacher:info";
 const PLANS_PATH = process.env.PLANS_JSON_PATH ?? join(process.cwd(), "data/plans.json");
 const SCHEDULE_PATH = process.env.SCHEDULE_JSON_PATH ?? join(process.cwd(), "data/plan-schedule.json");
 const TRACKS_PATH = process.env.TRACKS_JSON_PATH ?? join(process.cwd(), "data/tracks.json");
-const TRACK_BLOBS_PATH = process.env.TRACK_BLOBS_JSON_PATH ?? join(process.cwd(), "data/track-blobs.json");
 const CHECKLIST_BLOBS_PATH =
   process.env.CHECKLIST_BLOBS_JSON_PATH ?? join(process.cwd(), "data/checklist-blobs.json");
 const STUDENTS_PATH = process.env.STUDENTS_JSON_PATH ?? join(process.cwd(), "data/students.json");
@@ -90,24 +81,6 @@ function readLog(): Record<string, string[]> {
 
 function writeLog(log: Record<string, string[]>): void {
   writeFileSync(LOG_PATH, JSON.stringify(log, null, 2) + "\n");
-}
-
-async function readJson<T>(redisKey: string, filePath: string, seed: T): Promise<T> {
-  if (redis) {
-    const existing = await redis.get<T>(redisKey);
-    if (existing !== null && existing !== undefined) return existing;
-    await redis.set(redisKey, seed);
-    return seed;
-  }
-  return JSON.parse(readFileSync(filePath, "utf-8")) as T;
-}
-
-async function writeJson<T>(redisKey: string, filePath: string, value: T): Promise<void> {
-  if (redis) {
-    await redis.set(redisKey, value);
-  } else {
-    writeFileSync(filePath, JSON.stringify(value, null, 2) + "\n");
-  }
 }
 
 function nextPlanId(plans: Plan[]): string {
@@ -419,23 +392,11 @@ export async function addTrack(track: Track, blobUrl: string): Promise<void> {
   const tracks = await getTracks();
   const next = [...tracks, track];
   await writeJson<Track[]>(TRACKS_KEY, TRACKS_PATH, next);
-
-  const blobs = await readJson<Record<string, string>>(
-    TRACK_BLOBS_KEY,
-    TRACK_BLOBS_PATH,
-    {},
-  );
-  blobs[track.id] = blobUrl;
-  await writeJson<Record<string, string>>(TRACK_BLOBS_KEY, TRACK_BLOBS_PATH, blobs);
+  await setTrackBlobUrl(track.id, blobUrl);
 }
 
 export async function getTrackBlobUrl(id: string): Promise<string | null> {
-  const blobs = await readJson<Record<string, string>>(
-    TRACK_BLOBS_KEY,
-    TRACK_BLOBS_PATH,
-    {},
-  );
-  return blobs[id] ?? null;
+  return (await getTrackBlobs())[id] ?? null;
 }
 
 export async function getChecklistImageBlobs(): Promise<Record<string, string>> {
