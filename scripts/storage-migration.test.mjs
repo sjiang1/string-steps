@@ -35,6 +35,13 @@ describe("planHash / planSet against an already-populated target", () => {
     expect(await plan.verify()).toBe(true);
   });
 
+  it("copies a field named constructor into an empty target", async () => {
+    const redis = new FakeRedis();
+    const plan = await planHash(redis, "notes:d", "note:d", { constructor: "note" }, "");
+    expect(plan.present).toBe(0);
+    expect(plan.write).toBe(1);
+  });
+
   it("never overwrites a field that already exists", async () => {
     const redis = new FakeRedis();
     await redis.hset("note:d", { t: "newer" });
@@ -78,6 +85,14 @@ describe("entriesById", () => {
     ]);
     expect(entries).toEqual({ a: { id: "a", name: "first" }, b: { id: "b", name: "b" } });
     expect(duplicates).toEqual(["a"]);
+  });
+});
+
+describe("entriesById with built-in-looking ids", () => {
+  it("does not treat an id named constructor as a duplicate", () => {
+    const { entries, duplicates } = entriesById([{ id: "constructor" }, { id: "toString" }]);
+    expect(Object.keys(entries).sort()).toEqual(["constructor", "toString"]);
+    expect(duplicates).toEqual([]);
   });
 });
 

@@ -66,6 +66,13 @@ describe("hash helpers (file fallback)", () => {
     });
   });
 
+  it("treats a field named like an Object built-in as absent on an empty store", async () => {
+    const { hashGet, hashSetIfAbsent, hashGetAll, stringCodec } = await import("./storage");
+    expect(await hashGet("k", { path }, stringCodec, "constructor")).toBeNull();
+    expect(await hashSetIfAbsent("k", { path }, stringCodec, "constructor", "x")).toBe(true);
+    expect(await hashGetAll("k", { path }, stringCodec)).toEqual({ constructor: "x" });
+  });
+
   it("writes under the slot and leaves other slots alone", async () => {
     writeFileSync(path, JSON.stringify({ "2025-12-31": { t: "old" } }));
     const { hashSet, hashGetAll, stringCodec } = await import("./storage");

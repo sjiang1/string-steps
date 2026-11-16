@@ -139,7 +139,8 @@ export async function hashGet<T>(
     const raw = await redisRaw.hget<string>(redisKey, field);
     return raw === null || raw === undefined ? null : codec.decode(raw);
   }
-  return readSlot<Record<string, T>>(file, {})[field] ?? null;
+  const hash = readSlot<Record<string, T>>(file, {});
+  return Object.hasOwn(hash, field) ? hash[field] : null;
 }
 
 export async function hashSet<T>(
@@ -168,7 +169,9 @@ export async function hashSetIfAbsent<T>(
 ): Promise<boolean> {
   if (redisRaw) return (await redisRaw.hsetnx(redisKey, field, codec.encode(value))) === 1;
   const hash = readSlot<Record<string, T>>(file, {});
-  if (field in hash) return false;
+  // Own-property check: `in` would also find Object.prototype members such
+  // as "constructor", and skip a track with that id.
+  if (Object.hasOwn(hash, field)) return false;
   hash[field] = value;
   writeSlot(file, hash, false);
   return true;

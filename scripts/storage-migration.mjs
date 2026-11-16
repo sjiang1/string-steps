@@ -46,7 +46,7 @@ export function entriesById(array) {
   const entries = {};
   const duplicates = [];
   for (const record of array) {
-    if (record.id in entries) {
+    if (Object.hasOwn(entries, record.id)) {
       if (!duplicates.includes(record.id)) duplicates.push(record.id);
       continue;
     }
@@ -88,7 +88,7 @@ const PIPELINE_CHUNK = 100;
 // fields not already present (HSETNX), never overwriting.
 export async function planHash(redis, oldKey, newKey, fields, notes) {
   const existing = hashReplyToRecord(await redis.hgetall(newKey));
-  const toWrite = Object.keys(fields).filter((f) => !(f in existing));
+  const toWrite = Object.keys(fields).filter((f) => !Object.hasOwn(existing, f));
   return {
     oldKey,
     newKey,
