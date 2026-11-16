@@ -884,23 +884,8 @@ describe("createPlan — schedule activation", () => {
   });
 });
 
-describe("getDoneTasks — lazy log-key migration", () => {
-  it("migrates legacy unindexed keys to indexed form on first read", async () => {
-    const data = { "2026-04-09": ["scale-sing", "scale-playWithTrack-0"] };
-    writeFileSync(tempFile, JSON.stringify(data));
-    const { getDoneTasks } = await loadActions();
-
-    const result = await getDoneTasks("2026-04-09", PRIMARY);
-
-    expect(result).toEqual(["scale-sing-0", "scale-playWithTrack-0"]);
-    const persisted = JSON.parse(readFileSync(tempFile, "utf-8"));
-    expect(persisted["2026-04-09"]).toEqual([
-      "scale-sing-0",
-      "scale-playWithTrack-0",
-    ]);
-  });
-
-  it("leaves already-indexed keys untouched and does not rewrite the file", async () => {
+describe("getDoneTasks", () => {
+  it("reads without rewriting the file", async () => {
     const data = { "2026-04-09": ["scale-sing-0", "scale-sing-1"] };
     writeFileSync(tempFile, JSON.stringify(data));
     const statBefore = statSync(tempFile).mtimeMs;

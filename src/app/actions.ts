@@ -18,9 +18,9 @@ import { doneLogId, findPrimary, type Student } from "./students";
 import { isRotating, rotatingItemProgress } from "./rotation";
 import { doneCountForTask } from "./task-keys";
 import { redis, readJson, writeJson } from "./storage";
+import { getDone, toggleDone } from "./practice-log";
 import { getTrackBlobs, setTrackBlobUrl } from "./track-blobs";
 
-const LOG_PATH = process.env.PRACTICE_LOG_PATH ?? join(process.cwd(), "data/practice-log.json");
 const NOTES_PATH = process.env.NOTES_LOG_PATH ?? join(process.cwd(), "data/notes-log.json");
 
 const PLANS_KEY = "plans:list";
@@ -37,10 +37,6 @@ const CHECKLIST_BLOBS_PATH =
   process.env.CHECKLIST_BLOBS_JSON_PATH ?? join(process.cwd(), "data/checklist-blobs.json");
 const STUDENTS_PATH = process.env.STUDENTS_JSON_PATH ?? join(process.cwd(), "data/students.json");
 const TEACHER_PATH = process.env.TEACHER_JSON_PATH ?? join(process.cwd(), "data/teacher.json");
-
-function redisKey(logId: string): string {
-  return `practice:${logId}`;
-}
 
 function notesRedisKey(date: string): string {
   return `notes:${date}`;
@@ -59,28 +55,6 @@ function readNotes(): Record<string, Record<string, string>> {
 
 function writeNotes(notes: Record<string, Record<string, string>>): void {
   writeFileSync(NOTES_PATH, JSON.stringify(notes, null, 2) + "\n");
-}
-
-const INDEXED_KEY_RE = /-\d+$/;
-
-function migrateKeys(keys: string[]): { keys: string[]; changed: boolean } {
-  let changed = false;
-  const out = keys.map((k) => {
-    if (INDEXED_KEY_RE.test(k)) return k;
-    changed = true;
-    return `${k}-0`;
-  });
-  return { keys: out, changed };
-}
-
-// --- File-based helpers (local fallback) ---
-
-function readLog(): Record<string, string[]> {
-  return JSON.parse(readFileSync(LOG_PATH, "utf-8"));
-}
-
-function writeLog(log: Record<string, string[]>): void {
-  writeFileSync(LOG_PATH, JSON.stringify(log, null, 2) + "\n");
 }
 
 function nextPlanId(plans: Plan[]): string {
@@ -210,56 +184,23 @@ export async function getDoneTasks(
   date: string,
   student: Student,
 ): Promise<string[]> {
-  const logId = doneLogId(student, date);
-  if (redis) {
-    const raw = (await redis.get<string[]>(redisKey(logId))) ?? [];
-    const { keys, changed } = migrateKeys(raw);
-    if (changed) await redis.set(redisKey(logId), keys);
-    return keys;
-  }
-  const log = readLog();
-  const raw = log[logId] ?? [];
-  const { keys, changed } = migrateKeys(raw);
-  if (changed) {
-    log[logId] = keys;
-    writeLog(log);
-  }
-  return keys;
+  return getDone(doneLogId(student, date));
 }
 
 // The student's done keys for the `days` dates before `beforeDate`, newest
-// first — the input for ranking a rotating item's tracks. The file fallback
-// reads sequentially because getDoneTasks may rewrite the shared log file.
+// first — the input for ranking a rotating item's tracks.
 export async function getDoneHistory(
   student: Student,
   beforeDate: string,
   days: number,
 ): Promise<{ date: string; done: string[] }[]> {
   const dates = Array.from({ length: days }, (_, i) => notesAddDays(beforeDate, -(i + 1)));
-  if (redis) {
-    return Promise.all(dates.map(async (date) => ({ date, done: await getDoneTasks(date, student) })));
-  }
-  const out: { date: string; done: string[] }[] = [];
-  for (const date of dates) out.push({ date, done: await getDoneTasks(date, student) });
-  return out;
+  return Promise.all(dates.map(async (date) => ({ date, done: await getDoneTasks(date, student) })));
 }
 
 export async function toggleTask(date: string, taskKey: string): Promise<string[]> {
   const student = await getActiveStudent();
-  const logId = doneLogId(student, date);
-  const tasks = await getDoneTasks(date, student);
-  const next = tasks.includes(taskKey)
-    ? tasks.filter((x) => x !== taskKey)
-    : [...tasks, taskKey];
-
-  if (redis) {
-    await redis.set(redisKey(logId), next);
-  } else {
-    const log = readLog();
-    log[logId] = next;
-    writeLog(log);
-  }
-  return next;
+  return toggleDone(doneLogId(student, date), taskKey);
 }
 
 export type MonthProgressEntry =
