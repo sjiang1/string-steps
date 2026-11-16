@@ -111,12 +111,17 @@ Keep `redis`, `dataPath`, `readJson`, `writeJson` for the unchanged keys. Add:
 // data stays in one file (practice-log.json, notes-log.json).
 export type FileRef = { path: string; slot?: string };
 
-export async function hashGetAll<T>(redisKey: string, file: FileRef): Promise<Record<string, T>>;
-export async function hashGet<T>(redisKey: string, file: FileRef, field: string): Promise<T | null>;
-export async function hashSet<T>(redisKey: string, file: FileRef, field: string, value: T): Promise<void>;
-export async function hashSetIfAbsent<T>(redisKey: string, file: FileRef, field: string, value: T): Promise<boolean>; // HSETNX; true when written
+// How a field value is written to and read from Redis. See "Value encoding".
+export type Codec<T> = { encode(value: T): string; decode(raw: string): T };
+export const stringCodec: Codec<string>;          // identity
+export function jsonCodec<T>(): Codec<T>;          // JSON.stringify / JSON.parse
+
+export async function hashGetAll<T>(redisKey: string, file: FileRef, codec: Codec<T>): Promise<Record<string, T>>;
+export async function hashGet<T>(redisKey: string, file: FileRef, codec: Codec<T>, field: string): Promise<T | null>;
+export async function hashSet<T>(redisKey: string, file: FileRef, codec: Codec<T>, field: string, value: T): Promise<void>;
+export async function hashSetIfAbsent<T>(redisKey: string, file: FileRef, codec: Codec<T>, field: string, value: T): Promise<boolean>; // HSETNX; true when written
 export async function hashDelete(redisKey: string, file: FileRef, field: string): Promise<void>;
-export async function hashSeedIfEmpty<T>(redisKey: string, file: FileRef, seed: Record<string, T>): Promise<Record<string, T>>; // see Seeding
+export async function hashSeedIfEmpty<T>(redisKey: string, file: FileRef, codec: Codec<T>, seed: Record<string, T>): Promise<Record<string, T>>; // see Seeding
 
 export async function setMembers(redisKey: string, file: FileRef): Promise<string[]>;
 export async function setAdd(redisKey: string, file: FileRef, member: string): Promise<boolean>;    // SADD; true when newly added
@@ -129,10 +134,39 @@ Dev fallback shapes: a hash is a JSON object, a set is a JSON array of
 strings. With a `slot`, the file holds an object whose property `slot` is that
 object or array; a slot whose hash or set becomes empty is removed from the
 file (keeps today's behaviour for `notes-log.json`). Dev writes stay
-read-modify-write of the file; dev has one writer.
+read-modify-write of the file; dev has one writer. The dev file never uses
+the codec: values are stored as JSON values in the file, strings as strings
+and objects as objects.
+
+`HGETALL` on a missing or empty hash returns `null` in `@upstash/redis`; the
+helpers return `{}`.
 
 Return types are plain arrays and records so they can cross the server/client
 boundary.
+
+### Value encoding
+
+`@upstash/redis` runs `JSON.parse` on every value it reads, including hash
+fields and set members, and falls back to the raw string when parsing fails.
+A schedule value `"0"` (a plan id; production has these) would come back as
+the number `0`, and `value === planId` comparisons would silently fail. A note
+whose text is `5` or `true` would change type.
+
+So the new helpers use a **second client created with
+`automaticDeserialization: false`** (`redisRaw` in `storage.ts`) and encode
+and decode explicitly through the codec:
+
+- `stringCodec` for notes, blob URLs, schedule values, and all set members.
+  The Upstash console shows the plain text (`0`, `individual-class`, the
+  note), which is what a person hand-editing should type.
+- `jsonCodec<Track>()` / `jsonCodec<Plan>()` for the catalog and plans. The
+  console shows one JSON object per field, the same text a person edits in
+  the array today.
+
+`readJson`/`writeJson` keep the existing auto-deserialising `redis` client;
+the three unchanged keys are whole JSON values and behave as before. The Node
+scripts also create their clients with `automaticDeserialization: false` and
+encode the same way, so a script and the app never disagree about a value.
 
 ### Seeding
 
@@ -202,10 +236,14 @@ these files is `"use server"`.
 - `getPlans(): Promise<Plan[]>` → `Object.values(hashSeedIfEmpty(...))` then
   the existing `normalizePlans` (legacy item shapes, unchanged).
 - `putPlan(plan)` → `hashSet`. `savePlan` keeps its frozen check first.
-- `allocatePlanId(): Promise<string>` → `nextId("plan:next-id", fallback)`
-  where the dev fallback is today's max numeric id + 1 over the file. The
-  migration script seeds `plan:next-id` to the current maximum numeric id, so
-  the first `INCR` yields max + 1.
+- `createPlan` allocates the id and writes the plan in one loop:
+  `nextId("plan:next-id", fallback)` then `hashSetIfAbsent` with that id;
+  when the id already exists (a plan added by hand in the console, or a
+  fresh deployment whose counter starts below the seed) it takes the next
+  `INCR` and tries again. The dev fallback for `nextId` is today's max numeric
+  id + 1 over the file. The migration script seeds `plan:next-id` to the
+  current maximum numeric id, so the first `INCR` yields max + 1. The README
+  notes that plans added by hand are safe: the counter skips over them.
 
 **`schedule.ts`**
 
@@ -232,40 +270,55 @@ remain only for students, teacher, checklist blobs.
 `scripts/add-recordings.mjs`, `scripts/reencode-videos.mjs`,
 `scripts/migrate-media.mjs` read `tracks:list`/`tracks:blobs` with `GET` and
 write them whole with `SET`. They switch to `HGETALL` on `track:all` /
-`track:blob` and `HSET` per entry. They keep importing nothing from the app.
-`scripts/migrate-checklist-images.mjs` is unchanged (`checklist:blobs` stays).
+`track:blob` and `HSET` per entry, with `automaticDeserialization: false` and
+explicit `JSON.stringify`/`JSON.parse` for Track objects (see Value
+encoding). They keep importing nothing from the app.
+`scripts/rewrite-tracks-seed.mjs` and `src/app/seed-data.test.ts` read
+`data/tracks.json` / `data/plans.json` as arrays and are updated for the
+id-keyed shape. `scripts/migrate-checklist-images.mjs` is unchanged
+(`checklist:blobs` stays).
 
 ### Migration script: `scripts/migrate-storage.mjs`
 
 Follows the `migrate-checklist-images.mjs` convention: dry run by default,
 `--execute` to write. Runs against whatever `KV_REST_API_*` the env gives it.
 
-For each old key (practice and notes keys found with `SCAN`/`KEYS` on their
-prefixes):
+For each old key (practice and notes keys found with `KEYS` on their
+prefixes; production has about 130 practice keys and 20 note keys):
 
 1. `GET` the old value.
 2. Compute the new entries. Practice arrays: append `-0` to any member without
-   a numeric rep suffix (the old `migrateKeys` rule), then de-duplicate.
-   Tracks and plans: key by `id`. Others: as is.
-3. Dry run: print the new key, type, and entry count, plus any member that was
-   normalised. Execute: `HSET` all fields / `SADD` all members, then read back
-   and assert the count matches. `plan:next-id` is `SET` to the maximum
-   numeric plan id (or `-1` when there are none).
+   a numeric rep suffix (the old `migrateKeys` rule; production has one such
+   member), then de-duplicate. Tracks and plans: key by `id`; when an id
+   repeats, the **first** entry wins, matching today's `find`, and the dry run
+   lists every duplicate (production has none today). Others: as is.
+3. Dry run: print the new key, type, how many entries would be written and
+   how many already exist, plus any member that was normalised. Execute:
+   write **without overwriting**: `HSETNX` per field, `SADD` per member,
+   and `plan:next-id` set to the maximum numeric plan id only if that is
+   higher than the current counter (or `-1` when there are no plans and no
+   counter). Then read back and assert the new key holds at least as many
+   entries as the unique old ones.
 
-Old keys are never written or deleted. Re-running is safe: every write is
-idempotent. The script prints a summary table and exits non-zero if any
-read-back count differs.
+Old keys are never written or deleted. The script never overwrites a new-shape
+entry, so it can be run again after the deploy to pick up anything the old
+code wrote between `--execute` and the new code going live, and again after a
+rollback-and-retry. It prints a summary table and exits non-zero if any
+read-back check fails.
 
 ### Migration session (one step, quiet moment)
 
 1. Dry run against prod; read the output.
 2. `--execute`; confirm the summary.
 3. Remove `vercel.json` in the final commit, merge the PR, let Vercel deploy.
-4. Smoke test: Practice page, tick and untick one task, open Plans, open the
+4. Run `--execute` once more. It reports zero new entries unless someone
+   used the app between steps 2 and 3; either way, nothing is overwritten.
+5. Smoke test: Practice page, tick and untick one task, open Plans, open the
    Teacher report.
-5. Rollback if needed: revert the merge on GitHub. Old code reads old keys,
-   which were never touched.
-6. A week later, delete the old keys from the Upstash console (`DEL` on
+6. Rollback if needed: revert the merge on GitHub. Old code reads old keys,
+   which were never touched. Edits made on the new keys in the meantime are
+   not copied back; the window is the smoke test only.
+7. A week later, delete the old keys from the Upstash console (`DEL` on
    `tracks:list tracks:blobs plans:list schedule:map` and the `practice:*`,
    `notes:*` keys).
 
@@ -307,8 +360,14 @@ re-pointed at these helper signatures when #31 resumes (not in this PR).
 
 - `data/tracks.json` and `data/plans.json` become objects keyed by id.
 - New key names as in the table; old names untouched.
-- Plan ids come from a Redis counter in prod, max + 1 in dev.
+- Plan ids come from a Redis counter in prod, max + 1 in dev, and
+  `createPlan` skips ids that already exist (hand-added plans are safe).
 - `TrackPicker` sorts by name because hash order is not stable.
 - `toggleTask` keeps returning the full list; `TaskList` is untouched.
 - The legacy `-0` fix-up is removed; the migration normalises instead.
 - `scripts/migrate-media.mjs` is updated, not deleted.
+- Values are stored as plain strings (notes, schedule, blob URLs, tap keys)
+  or JSON objects (tracks, plans) through a non-deserialising client and
+  explicit codecs, so `"0"` stays a string and the console shows plain text.
+- The migration never overwrites a new-shape entry, so it can be re-run after
+  the deploy. Duplicate ids (none in production today) keep the first entry.
