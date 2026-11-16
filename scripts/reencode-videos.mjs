@@ -5,14 +5,14 @@
 //
 // Why: iOS uploads (via the Shortcut) can land non-faststart and/or high-bitrate
 // (see #26) and stutter. The ffmpeg recipe (~1.2 Mbps, faststart) streams fine.
-// This tool ffprobes EVERY video in tracks:blobs, flags any that are non-faststart
+// This tool ffprobes EVERY video in track:blob, flags any that are non-faststart
 // or over the bitrate ceiling, and (on --execute) re-encodes just those with the
 // standard recipe and swaps them on Blob.
 //
 // Stopgap until on-device encoding produces streaming-ready files directly (#32).
 //
 // Cache-safe swap: Blob caches by pathname (cache-control 30 days), so the
-// re-encoded file goes to a NEW pathname (videos/<id>.mp4); we repoint tracks:blobs
+// re-encoded file goes to a NEW pathname (videos/<id>.mp4); we repoint track:blob
 // and delete the old object. New URL => no stale CDN/browser cache.
 import { execFileSync } from "node:child_process";
 import { readFileSync, statSync, mkdtempSync } from "node:fs";
@@ -53,9 +53,10 @@ async function main() {
         "(run with: node --env-file=.env.local scripts/reencode-videos.mjs)",
     );
   }
-  const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN });
-  const tracks = (await redis.get("tracks:list")) ?? [];
-  const blobs = (await redis.get("tracks:blobs")) ?? {};
+  const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN, automaticDeserialization: false });
+  // track:all and track:blob are hashes; Track objects are JSON strings.
+  const tracks = Object.values((await redis.hgetall("track:all")) ?? {}).map((s) => JSON.parse(s));
+  const blobs = (await redis.hgetall("track:blob")) ?? {};
   const videos = tracks.filter((t) => t.type === "video" && blobs[t.id]);
   const dir = mkdtempSync(join(tmpdir(), "reencode-"));
   console.log(`mode=${EXECUTE ? "EXECUTE" : "DRY-RUN (audit)"}  videos=${videos.length}`);
@@ -102,7 +103,7 @@ async function main() {
       allowOverwrite: true,
     });
     blobs[t.id] = newUrl;
-    await redis.set("tracks:blobs", blobs);
+    await redis.hset("track:blob", { [t.id]: newUrl });
     if (newPathname !== oldPathname) await del(oldUrl, { token: BLOB_READ_WRITE_TOKEN });
     console.log(`  uploaded -> ${newUrl}; redis updated; deleted old ${oldPathname}`);
   }
