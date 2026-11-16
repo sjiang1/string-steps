@@ -19,7 +19,7 @@ import { doneCountForTask } from "./task-keys";
 import { readJson, writeJson } from "./storage";
 import { getDone, toggleDone } from "./practice-log";
 import { getNotes, setNote } from "./notes";
-import { getTrackBlobs, setTrackBlobUrl } from "./track-blobs";
+import { getTrackBlobUrl as lookupTrackBlobUrl, setTrackBlobUrl } from "./track-blobs";
 
 
 const PLANS_KEY = "plans:list";
@@ -324,7 +324,7 @@ export async function addTrack(track: Track, blobUrl: string): Promise<void> {
 }
 
 export async function getTrackBlobUrl(id: string): Promise<string | null> {
-  return (await getTrackBlobs())[id] ?? null;
+  return lookupTrackBlobUrl(id);
 }
 
 export async function getChecklistImageBlobs(): Promise<Record<string, string>> {

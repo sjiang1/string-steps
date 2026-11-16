@@ -42,4 +42,11 @@ describe("track blobs store", () => {
       c: "https://blob/c.mp4",
     });
   });
+
+  it("getTrackBlobUrl returns null for an unknown id and the URL for a known one", async () => {
+    const { setTrackBlobUrl, getTrackBlobUrl } = await import("./track-blobs");
+    expect(await getTrackBlobUrl("nope")).toBeNull();
+    await setTrackBlobUrl("a", "https://blob/a.mp4");
+    expect(await getTrackBlobUrl("a")).toBe("https://blob/a.mp4");
+  });
 });
