@@ -3,7 +3,6 @@
 import { join } from "path";
 import scheduleData from "@data/plan-schedule.json";
 import plansSeed from "@data/plans.json";
-import tracksSeed from "@data/tracks.json";
 import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
 import { cookies } from "next/headers";
@@ -20,18 +19,17 @@ import { readJson, writeJson } from "./storage";
 import { getDone, toggleDone } from "./practice-log";
 import { getNotes, setNote } from "./notes";
 import { getTrackBlobUrl as lookupTrackBlobUrl, setTrackBlobUrl } from "./track-blobs";
+import { getTracks as listTracks, addTracks } from "./tracks";
 
 
 const PLANS_KEY = "plans:list";
 const SCHEDULE_KEY = "schedule:map";
-const TRACKS_KEY = "tracks:list";
 const CHECKLIST_BLOBS_KEY = "checklist:blobs";
 const STUDENTS_KEY = "students:list";
 const TEACHER_KEY = "teacher:info";
 
 const PLANS_PATH = process.env.PLANS_JSON_PATH ?? join(process.cwd(), "data/plans.json");
 const SCHEDULE_PATH = process.env.SCHEDULE_JSON_PATH ?? join(process.cwd(), "data/plan-schedule.json");
-const TRACKS_PATH = process.env.TRACKS_JSON_PATH ?? join(process.cwd(), "data/tracks.json");
 const CHECKLIST_BLOBS_PATH =
   process.env.CHECKLIST_BLOBS_JSON_PATH ?? join(process.cwd(), "data/checklist-blobs.json");
 const STUDENTS_PATH = process.env.STUDENTS_JSON_PATH ?? join(process.cwd(), "data/students.json");
@@ -142,7 +140,7 @@ export async function setDayType(date: string, dayTypeId: string | null): Promis
 }
 
 export async function getTracks(): Promise<Track[]> {
-  return readJson<Track[]>(TRACKS_KEY, TRACKS_PATH, tracksSeed as Track[]);
+  return listTracks();
 }
 
 export type Teacher = { name: string };
@@ -283,14 +281,7 @@ export async function savePlan(
     throw new Error(`Plan "${plan.id}" is frozen — a past date has practice or a note, so it cannot be edited`);
   }
 
-  if (newReferenceTracks.length > 0) {
-    const tracks = await getTracks();
-    const existing = new Set(tracks.map((t) => t.id));
-    const toAdd = newReferenceTracks.filter((t) => !existing.has(t.id));
-    if (toAdd.length > 0) {
-      await writeJson<Track[]>(TRACKS_KEY, TRACKS_PATH, [...tracks, ...toAdd]);
-    }
-  }
+  if (newReferenceTracks.length > 0) await addTracks(newReferenceTracks);
 
   const plans = await getPlans();
   const idx = plans.findIndex((p) => p.id === plan.id);
@@ -317,9 +308,7 @@ export async function createPlan(
 }
 
 export async function addTrack(track: Track, blobUrl: string): Promise<void> {
-  const tracks = await getTracks();
-  const next = [...tracks, track];
-  await writeJson<Track[]>(TRACKS_KEY, TRACKS_PATH, next);
+  await addTracks([track]);
   await setTrackBlobUrl(track.id, blobUrl);
 }
 

@@ -73,9 +73,13 @@ function setupPlansData(data: unknown): void {
   process.env.PLANS_JSON_PATH = file;
 }
 
+// data/tracks.json is an object keyed by id; tests may still pass an array.
 function setupTracksData(data: unknown): string {
   const file = join(tempDir, "tracks.json");
-  writeFileSync(file, JSON.stringify(data));
+  const byId = Array.isArray(data)
+    ? Object.fromEntries((data as { id: string }[]).map((t) => [t.id, t]))
+    : data;
+  writeFileSync(file, JSON.stringify(byId));
   process.env.TRACKS_JSON_PATH = file;
   return file;
 }
@@ -656,9 +660,7 @@ describe("savePlan — inline reference tracks", () => {
       ),
     ).rejects.toThrow(/frozen|past/i);
 
-    expect(JSON.parse(readFileSync(tracksFile, "utf-8")).map((t: { id: string }) => t.id)).toEqual([
-      "scale",
-    ]);
+    expect(Object.keys(JSON.parse(readFileSync(tracksFile, "utf-8")))).toEqual(["scale"]);
   });
 });
 

@@ -8,7 +8,8 @@ import dayTypes from "@data/day-types.json";
 import { mostRecentPastPracticePlanIdAsOf } from "./plans";
 import { todayLocal } from "./today";
 
-const trackIds = new Set((tracks as { id: string }[]).map((t) => t.id));
+const trackList = Object.values(tracks) as { id: string; type: string; file: string | null }[];
+const trackIds = new Set(trackList.map((t) => t.id));
 const planIds = new Set((plans as { id: string }[]).map((p) => p.id));
 const dayTypeIds = new Set((dayTypes as { id: string }[]).map((d) => d.id));
 const scheduleMap = schedule as Record<string, string>;
@@ -37,7 +38,7 @@ describe("committed seed data is internally consistent", () => {
   });
 
   it("every track with a /demo/ file points at an existing public asset", () => {
-    for (const t of tracks as { type: string; file: string | null }[]) {
+    for (const t of trackList) {
       if (t.file && t.file.startsWith("/demo/")) {
         expect(existsSync(join(process.cwd(), "public", t.file)), `missing public${t.file}`).toBe(true);
       }
