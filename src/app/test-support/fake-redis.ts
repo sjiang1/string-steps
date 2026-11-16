@@ -59,10 +59,13 @@ export class FakeRedis {
     return "OK";
   }
 
-  async hgetall(key: string): Promise<Record<string, string> | null> {
+  // With automaticDeserialization off, the real client returns HGETALL as a
+  // flat [field, value, field, value, …] array, and [] for a missing key
+  // (pinned by storage.contract.test.ts).
+  async hgetall(key: string): Promise<string[]> {
     const h = store.get(key);
-    if (!(h instanceof Map) || h.size === 0) return null;
-    return Object.fromEntries(h);
+    if (!(h instanceof Map)) return [];
+    return [...h].flat();
   }
 
   async hget(key: string, field: string): Promise<string | null> {

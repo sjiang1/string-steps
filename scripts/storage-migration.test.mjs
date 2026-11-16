@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
+import { FakeRedis } from "../src/app/test-support/fake-redis.ts";
 import {
   normalizeTapKeys,
   entriesById,
@@ -6,7 +7,53 @@ import {
   KEY_MAP,
   newPracticeKey,
   newNotesKey,
+  hashReplyToRecord,
+  planHash,
+  planSet,
 } from "./storage-migration.mjs";
+
+describe("hashReplyToRecord", () => {
+  it("turns a flat HGETALL reply into a record and [] into {}", () => {
+    expect(hashReplyToRecord(["a", "0", "b", '{"x":1}'])).toEqual({ a: "0", b: '{"x":1}' });
+    expect(hashReplyToRecord([])).toEqual({});
+    expect(hashReplyToRecord(null)).toEqual({});
+    expect(hashReplyToRecord({ a: "1" })).toEqual({ a: "1" });
+  });
+});
+
+describe("planHash / planSet against an already-populated target", () => {
+  beforeEach(() => FakeRedis.reset());
+
+  it("counts only fields that are really present and writes the rest", async () => {
+    const redis = new FakeRedis();
+    await redis.hset("plan:all", { "0": "p0", "1": "p1" });
+    const plan = await planHash(redis, "plans:list", "plan:all", { "0": "p0", "1": "p1", "2": "p2", "3": "p3" }, "");
+    expect(plan.present).toBe(2);
+    expect(plan.write).toBe(2);
+    await plan.apply();
+    expect(hashReplyToRecord(await redis.hgetall("plan:all"))).toEqual({ "0": "p0", "1": "p1", "2": "p2", "3": "p3" });
+    expect(await plan.verify()).toBe(true);
+  });
+
+  it("never overwrites a field that already exists", async () => {
+    const redis = new FakeRedis();
+    await redis.hset("note:d", { t: "newer" });
+    const plan = await planHash(redis, "notes:d", "note:d", { t: "older" }, "");
+    await plan.apply();
+    expect(hashReplyToRecord(await redis.hgetall("note:d"))).toEqual({ t: "newer" });
+  });
+
+  it("planSet adds only the missing members", async () => {
+    const redis = new FakeRedis();
+    await redis.sadd("done:d", "a-sing-0");
+    const plan = await planSet(redis, "practice:d", "done:d", ["a-sing-0", "b-sing-0"], "");
+    expect(plan.present).toBe(1);
+    expect(plan.write).toBe(1);
+    await plan.apply();
+    expect((await redis.smembers("done:d")).sort()).toEqual(["a-sing-0", "b-sing-0"]);
+    expect(await plan.verify()).toBe(true);
+  });
+});
 
 describe("normalizeTapKeys", () => {
   it("appends -0 to a member without a rep suffix and reports it", () => {

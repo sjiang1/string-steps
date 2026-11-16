@@ -11,6 +11,7 @@ import {
   blobPathnameFor,
   proxyPathFor,
 } from "./media-migration.mjs";
+import { hashReplyToRecord } from "./storage-migration.mjs";
 
 const EXECUTE = process.argv.includes("--execute");
 const PUBLIC_DIR = join(process.cwd(), "public");
@@ -26,7 +27,7 @@ async function main() {
 
   const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN, automaticDeserialization: false });
   // track:all and track:blob are hashes; Track objects are JSON strings.
-  const tracks = Object.values((await redis.hgetall("track:all")) ?? {}).map((s) => JSON.parse(s));
+  const tracks = Object.values(hashReplyToRecord(await redis.hgetall("track:all"))).map((s) => JSON.parse(s));
   const toMigrate = tracks.filter(needsMigration);
 
   console.log(

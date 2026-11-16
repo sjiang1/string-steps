@@ -64,3 +64,71 @@ export function maxNumericId(ids) {
   }
   return max;
 }
+
+// With automaticDeserialization off, @upstash/redis returns HGETALL as a flat
+// [field, value, field, value, …] array and [] for a missing key (the pairs →
+// object step was part of the deserializer that got switched off). Same rule
+// as hashReplyToRecord in src/app/storage.ts; mirrored here so the scripts
+// import nothing from the app.
+export function hashReplyToRecord(raw) {
+  if (Array.isArray(raw)) {
+    const out = {};
+    for (let i = 0; i + 1 < raw.length; i += 2) out[String(raw[i])] = String(raw[i + 1]);
+    return out;
+  }
+  return raw ?? {};
+}
+
+// --- Planned writes. These take a Redis client so they can run against the
+// test double; nothing here reads the environment.
+
+const PIPELINE_CHUNK = 100;
+
+// One hash to fill: `fields` are field → encoded string. Writes only the
+// fields not already present (HSETNX), never overwriting.
+export async function planHash(redis, oldKey, newKey, fields, notes) {
+  const existing = hashReplyToRecord(await redis.hgetall(newKey));
+  const toWrite = Object.keys(fields).filter((f) => !(f in existing));
+  return {
+    oldKey,
+    newKey,
+    type: "hash",
+    total: Object.keys(fields).length,
+    write: toWrite.length,
+    present: Object.keys(fields).length - toWrite.length,
+    notes,
+    apply: async () => {
+      for (let i = 0; i < toWrite.length; i += PIPELINE_CHUNK) {
+        const chunk = toWrite.slice(i, i + PIPELINE_CHUNK);
+        if (typeof redis.pipeline === "function") {
+          const p = redis.pipeline();
+          for (const f of chunk) p.hsetnx(newKey, f, fields[f]);
+          await p.exec();
+        } else {
+          for (const f of chunk) await redis.hsetnx(newKey, f, fields[f]);
+        }
+      }
+    },
+    verify: async () =>
+      Object.keys(hashReplyToRecord(await redis.hgetall(newKey))).length >= Object.keys(fields).length,
+  };
+}
+
+// One set to fill: SADD only the members not already present.
+export async function planSet(redis, oldKey, newKey, members, notes) {
+  const existing = new Set((await redis.smembers(newKey)) ?? []);
+  const toWrite = members.filter((m) => !existing.has(m));
+  return {
+    oldKey,
+    newKey,
+    type: "set",
+    total: members.length,
+    write: toWrite.length,
+    present: members.length - toWrite.length,
+    notes,
+    apply: async () => {
+      if (toWrite.length > 0) await redis.sadd(newKey, ...toWrite);
+    },
+    verify: async () => ((await redis.smembers(newKey)) ?? []).length >= members.length,
+  };
+}

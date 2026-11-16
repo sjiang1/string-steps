@@ -138,8 +138,11 @@ read-modify-write of the file; dev has one writer. The dev file never uses
 the codec: values are stored as JSON values in the file, strings as strings
 and objects as objects.
 
-`HGETALL` on a missing or empty hash returns `null` in `@upstash/redis`; the
-helpers return `{}`.
+With `automaticDeserialization: false`, `HGETALL` in `@upstash/redis` returns a
+flat `[field, value, field, value, …]` array and `[]` for a missing key (the
+pairs-to-object step is part of the deserializer that gets switched off). The
+helpers convert through `hashReplyToRecord` and return `{}` for a missing key.
+`storage.contract.test.ts` pins these shapes against the real client.
 
 Return types are plain arrays and records so they can cross the server/client
 boundary.

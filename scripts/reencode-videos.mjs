@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { Redis } from "@upstash/redis";
 import { put, del } from "@vercel/blob";
 import { needsReencode, ffmpegArgs, newPathnameFor, atomsAreFaststart } from "./video-recipe.mjs";
+import { hashReplyToRecord } from "./storage-migration.mjs";
 
 const EXECUTE = process.argv.includes("--execute");
 
@@ -55,8 +56,8 @@ async function main() {
   }
   const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN, automaticDeserialization: false });
   // track:all and track:blob are hashes; Track objects are JSON strings.
-  const tracks = Object.values((await redis.hgetall("track:all")) ?? {}).map((s) => JSON.parse(s));
-  const blobs = (await redis.hgetall("track:blob")) ?? {};
+  const tracks = Object.values(hashReplyToRecord(await redis.hgetall("track:all"))).map((s) => JSON.parse(s));
+  const blobs = hashReplyToRecord(await redis.hgetall("track:blob"));
   const videos = tracks.filter((t) => t.type === "video" && blobs[t.id]);
   const dir = mkdtempSync(join(tmpdir(), "reencode-"));
   console.log(`mode=${EXECUTE ? "EXECUTE" : "DRY-RUN (audit)"}  videos=${videos.length}`);

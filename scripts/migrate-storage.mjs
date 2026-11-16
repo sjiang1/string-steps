@@ -18,55 +18,14 @@ import {
   normalizeTapKeys,
   entriesById,
   maxNumericId,
+  planHash,
+  planSet,
 } from "./storage-migration.mjs";
 
 const EXECUTE = process.argv.includes("--execute");
-const PIPELINE_CHUNK = 100;
-
 async function readOld(redis, key) {
   const raw = await redis.get(key);
   return raw === null || raw === undefined ? null : JSON.parse(raw);
-}
-
-// One planned hash write: fields → encoded string values.
-async function planHash(redis, oldKey, newKey, fields, notes) {
-  const existing = (await redis.hgetall(newKey)) ?? {};
-  const toWrite = Object.keys(fields).filter((f) => !(f in existing));
-  return {
-    oldKey,
-    newKey,
-    type: "hash",
-    total: Object.keys(fields).length,
-    write: toWrite.length,
-    present: Object.keys(fields).length - toWrite.length,
-    notes,
-    apply: async () => {
-      for (let i = 0; i < toWrite.length; i += PIPELINE_CHUNK) {
-        const p = redis.pipeline();
-        for (const f of toWrite.slice(i, i + PIPELINE_CHUNK)) p.hsetnx(newKey, f, fields[f]);
-        await p.exec();
-      }
-    },
-    verify: async () => Object.keys((await redis.hgetall(newKey)) ?? {}).length >= Object.keys(fields).length,
-  };
-}
-
-async function planSet(redis, oldKey, newKey, members, notes) {
-  const existing = new Set((await redis.smembers(newKey)) ?? []);
-  const toWrite = members.filter((m) => !existing.has(m));
-  return {
-    oldKey,
-    newKey,
-    type: "set",
-    total: members.length,
-    write: toWrite.length,
-    present: members.length - toWrite.length,
-    notes,
-    apply: async () => {
-      if (toWrite.length > 0) await redis.sadd(newKey, ...toWrite);
-    },
-    verify: async () => ((await redis.smembers(newKey)) ?? []).length >= members.length,
-  };
 }
 
 async function main() {

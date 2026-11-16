@@ -74,9 +74,23 @@ export function jsonCodec<T>(): Codec<T> {
   };
 }
 
-function decodeAll<T>(raw: Record<string, string> | null, codec: Codec<T>): Record<string, T> {
+// With automaticDeserialization off, HGETALL comes back as a flat
+// [field, value, field, value, …] array ([] for a missing key): turning the
+// pairs into an object was part of the deserializer that got switched off.
+// Pinned by storage.contract.test.ts. An object is accepted too in case a
+// future client version changes its mind.
+export function hashReplyToRecord(raw: unknown): Record<string, string> {
+  if (Array.isArray(raw)) {
+    const out: Record<string, string> = {};
+    for (let i = 0; i + 1 < raw.length; i += 2) out[String(raw[i])] = String(raw[i + 1]);
+    return out;
+  }
+  return (raw as Record<string, string> | null | undefined) ?? {};
+}
+
+function decodeAll<T>(raw: unknown, codec: Codec<T>): Record<string, T> {
   const out: Record<string, T> = {};
-  for (const [field, value] of Object.entries(raw ?? {})) out[field] = codec.decode(value);
+  for (const [field, value] of Object.entries(hashReplyToRecord(raw))) out[field] = codec.decode(value);
   return out;
 }
 
@@ -180,8 +194,8 @@ export async function hashSeedIfEmpty<T>(
   seed: Record<string, T>,
 ): Promise<Record<string, T>> {
   if (redisRaw) {
-    const existing = await redisRaw.hgetall<Record<string, string>>(redisKey);
-    if (existing && Object.keys(existing).length > 0) return decodeAll(existing, codec);
+    const existing = hashReplyToRecord(await redisRaw.hgetall(redisKey));
+    if (Object.keys(existing).length > 0) return decodeAll(existing, codec);
     const encoded: Record<string, string> = {};
     for (const [field, value] of Object.entries(seed)) encoded[field] = codec.encode(value);
     if (Object.keys(encoded).length > 0) await redisRaw.hset(redisKey, encoded);
