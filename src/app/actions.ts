@@ -1,6 +1,5 @@
 "use server";
 
-import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import scheduleData from "@data/plan-schedule.json";
 import plansSeed from "@data/plans.json";
@@ -17,11 +16,11 @@ import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-act
 import { doneLogId, findPrimary, type Student } from "./students";
 import { isRotating, rotatingItemProgress } from "./rotation";
 import { doneCountForTask } from "./task-keys";
-import { redis, readJson, writeJson } from "./storage";
+import { readJson, writeJson } from "./storage";
 import { getDone, toggleDone } from "./practice-log";
+import { getNotes, setNote } from "./notes";
 import { getTrackBlobs, setTrackBlobUrl } from "./track-blobs";
 
-const NOTES_PATH = process.env.NOTES_LOG_PATH ?? join(process.cwd(), "data/notes-log.json");
 
 const PLANS_KEY = "plans:list";
 const SCHEDULE_KEY = "schedule:map";
@@ -38,23 +37,11 @@ const CHECKLIST_BLOBS_PATH =
 const STUDENTS_PATH = process.env.STUDENTS_JSON_PATH ?? join(process.cwd(), "data/students.json");
 const TEACHER_PATH = process.env.TEACHER_JSON_PATH ?? join(process.cwd(), "data/teacher.json");
 
-function notesRedisKey(date: string): string {
-  return `notes:${date}`;
-}
-
 function notesAddDays(date: string, delta: number): string {
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + delta);
   return dt.toISOString().slice(0, 10);
-}
-
-function readNotes(): Record<string, Record<string, string>> {
-  return JSON.parse(readFileSync(NOTES_PATH, "utf-8"));
-}
-
-function writeNotes(notes: Record<string, Record<string, string>>): void {
-  writeFileSync(NOTES_PATH, JSON.stringify(notes, null, 2) + "\n");
 }
 
 function nextPlanId(plans: Plan[]): string {
@@ -356,11 +343,7 @@ export async function getChecklistImageBlobUrl(id: string): Promise<string | nul
 export async function getNotesForDate(
   date: string,
 ): Promise<Record<string, string>> {
-  if (redis) {
-    return (await redis.get<Record<string, string>>(notesRedisKey(date))) ?? {};
-  }
-  const all = readNotes();
-  return all[date] ?? {};
+  return getNotes(date);
 }
 
 export async function saveTrackNote(
@@ -368,24 +351,7 @@ export async function saveTrackNote(
   trackId: string,
   note: string,
 ): Promise<void> {
-  const trimmed = note.trim();
-
-  if (redis) {
-    const day =
-      (await redis.get<Record<string, string>>(notesRedisKey(date))) ?? {};
-    if (trimmed === "") delete day[trackId];
-    else day[trackId] = trimmed;
-    await redis.set(notesRedisKey(date), day);
-    return;
-  }
-
-  const all = readNotes();
-  const day = all[date] ?? {};
-  if (trimmed === "") delete day[trackId];
-  else day[trackId] = trimmed;
-  if (Object.keys(day).length === 0) delete all[date];
-  else all[date] = day;
-  writeNotes(all);
+  await setNote(date, trackId, note);
 }
 
 export async function getNotesInRange(
