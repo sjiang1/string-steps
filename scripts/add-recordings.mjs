@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Redis } from "@upstash/redis";
 import { put } from "@vercel/blob";
 import { planRecordings } from "./recordings.mjs";
+import { hashReplyToRecord } from "./storage-migration.mjs";
 
 const EXECUTE = process.argv.includes("--execute");
 const RECORDINGS_DIR = join(process.cwd(), "recordings");
@@ -18,9 +19,9 @@ async function main() {
     );
   }
 
-  const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN });
-  const tracks = (await redis.get("tracks:list")) ?? [];
-  const blobs = (await redis.get("tracks:blobs")) ?? {};
+  const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN, automaticDeserialization: false });
+  // track:all and track:blob are hashes; Track objects are JSON strings.
+  const tracks = Object.values(hashReplyToRecord(await redis.hgetall("track:all"))).map((s) => JSON.parse(s));
   const existingIds = new Set(tracks.map((t) => t.id));
 
   const files = readdirSync(RECORDINGS_DIR);
@@ -50,14 +51,13 @@ async function main() {
       addRandomSuffix: false,
       allowOverwrite: true,
     });
-    blobs[track.id] = url;
-    tracks.push({ id: track.id, name: track.name, type: track.type, file: track.file });
-    console.log(`  uploaded ${track.id} -> ${url}`);
+    const entry = { id: track.id, name: track.name, type: track.type, file: track.file };
+    await redis.hset("track:blob", { [track.id]: url });
+    await redis.hset("track:all", { [track.id]: JSON.stringify(entry) });
+    console.log(`  uploaded ${track.id} -> ${url}; written to track:blob + track:all`);
   }
 
-  await redis.set("tracks:blobs", blobs);
-  await redis.set("tracks:list", tracks);
-  console.log(`\nWrote tracks:blobs and tracks:list (${toAdd.length} added).`);
+  console.log(`\n${toAdd.length} added to track:all and track:blob.`);
 }
 
 main().catch((err) => {

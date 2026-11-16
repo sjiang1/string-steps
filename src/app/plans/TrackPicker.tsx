@@ -36,9 +36,10 @@ export default function TrackPicker({
   const [query, setQuery] = useState("");
   const inPlanSet = new Set(inPlan);
   const trimmed = query.trim();
-  const filtered = tracks.filter((t) =>
-    t.name.toLowerCase().includes(query.toLowerCase()),
-  );
+  // Sorted here: the catalog is a Redis hash with no stable order (#44).
+  const filtered = tracks
+    .filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
   const hasExactMatch = tracks.some(
     (t) => t.name.toLowerCase() === trimmed.toLowerCase(),
   );

@@ -1,10 +1,6 @@
 "use server";
 
-import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import scheduleData from "@data/plan-schedule.json";
-import plansSeed from "@data/plans.json";
-import tracksSeed from "@data/tracks.json";
 import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
 import { cookies } from "next/headers";
@@ -17,78 +13,35 @@ import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-act
 import { doneLogId, findPrimary, type Student } from "./students";
 import { isRotating, rotatingItemProgress } from "./rotation";
 import { doneCountForTask } from "./task-keys";
-import { redis, readJson, writeJson } from "./storage";
-import { getTrackBlobs, setTrackBlobUrl } from "./track-blobs";
+import { readJson } from "./storage";
+import { getDone, toggleDone } from "./practice-log";
+import { getNotes, setNote } from "./notes";
+import { getTrackBlobUrl as lookupTrackBlobUrl, setTrackBlobUrl } from "./track-blobs";
+import { getTracks as listTracks, addTracks } from "./tracks";
+import { getPlanMap, putPlan, createPlanWithNewId } from "./plan-store";
+import {
+  getScheduleMap,
+  setScheduleEntry,
+  setScheduleEntryIfAbsent,
+  deleteScheduleEntry,
+  writeScheduleDiff,
+} from "./schedule";
 
-const LOG_PATH = process.env.PRACTICE_LOG_PATH ?? join(process.cwd(), "data/practice-log.json");
-const NOTES_PATH = process.env.NOTES_LOG_PATH ?? join(process.cwd(), "data/notes-log.json");
 
-const PLANS_KEY = "plans:list";
-const SCHEDULE_KEY = "schedule:map";
-const TRACKS_KEY = "tracks:list";
 const CHECKLIST_BLOBS_KEY = "checklist:blobs";
 const STUDENTS_KEY = "students:list";
 const TEACHER_KEY = "teacher:info";
 
-const PLANS_PATH = process.env.PLANS_JSON_PATH ?? join(process.cwd(), "data/plans.json");
-const SCHEDULE_PATH = process.env.SCHEDULE_JSON_PATH ?? join(process.cwd(), "data/plan-schedule.json");
-const TRACKS_PATH = process.env.TRACKS_JSON_PATH ?? join(process.cwd(), "data/tracks.json");
 const CHECKLIST_BLOBS_PATH =
   process.env.CHECKLIST_BLOBS_JSON_PATH ?? join(process.cwd(), "data/checklist-blobs.json");
 const STUDENTS_PATH = process.env.STUDENTS_JSON_PATH ?? join(process.cwd(), "data/students.json");
 const TEACHER_PATH = process.env.TEACHER_JSON_PATH ?? join(process.cwd(), "data/teacher.json");
-
-function redisKey(logId: string): string {
-  return `practice:${logId}`;
-}
-
-function notesRedisKey(date: string): string {
-  return `notes:${date}`;
-}
 
 function notesAddDays(date: string, delta: number): string {
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + delta);
   return dt.toISOString().slice(0, 10);
-}
-
-function readNotes(): Record<string, Record<string, string>> {
-  return JSON.parse(readFileSync(NOTES_PATH, "utf-8"));
-}
-
-function writeNotes(notes: Record<string, Record<string, string>>): void {
-  writeFileSync(NOTES_PATH, JSON.stringify(notes, null, 2) + "\n");
-}
-
-const INDEXED_KEY_RE = /-\d+$/;
-
-function migrateKeys(keys: string[]): { keys: string[]; changed: boolean } {
-  let changed = false;
-  const out = keys.map((k) => {
-    if (INDEXED_KEY_RE.test(k)) return k;
-    changed = true;
-    return `${k}-0`;
-  });
-  return { keys: out, changed };
-}
-
-// --- File-based helpers (local fallback) ---
-
-function readLog(): Record<string, string[]> {
-  return JSON.parse(readFileSync(LOG_PATH, "utf-8"));
-}
-
-function writeLog(log: Record<string, string[]>): void {
-  writeFileSync(LOG_PATH, JSON.stringify(log, null, 2) + "\n");
-}
-
-function nextPlanId(plans: Plan[]): string {
-  const numericIds = plans
-    .map((p) => parseInt(p.id, 10))
-    .filter((n) => !isNaN(n));
-  const max = numericIds.length === 0 ? -1 : Math.max(...numericIds);
-  return String(max + 1);
 }
 
 // --- Public API ---
@@ -126,9 +79,7 @@ function normalizePlans(plans: Plan[]): Plan[] {
 }
 
 export async function getPlans(): Promise<Plan[]> {
-  return normalizePlans(
-    await readJson<Plan[]>(PLANS_KEY, PLANS_PATH, plansSeed as unknown as Plan[]),
-  );
+  return normalizePlans(Object.values(await getPlanMap()));
 }
 
 function ensureTodayInSchedule(
@@ -151,10 +102,14 @@ function ensureTodayInSchedule(
 }
 
 export async function getSchedule(): Promise<PlanSchedule> {
-  const raw = await readJson<PlanSchedule>(SCHEDULE_KEY, SCHEDULE_PATH, scheduleData as PlanSchedule);
-  const { schedule, mutated } = ensureTodayInSchedule(raw, todayLocal());
+  const today = todayLocal();
+  const raw = await getScheduleMap();
+  const { schedule, mutated } = ensureTodayInSchedule(raw, today);
   if (mutated) {
-    await writeJson<PlanSchedule>(SCHEDULE_KEY, SCHEDULE_PATH, schedule);
+    // Set-if-absent: a parallel request may have filled today first; if so,
+    // its value wins and we re-read rather than return our guess.
+    const written = await setScheduleEntryIfAbsent(today, schedule[today]);
+    if (!written) return getScheduleMap();
   }
   return schedule;
 }
@@ -171,17 +126,12 @@ export async function setDayType(date: string, dayTypeId: string | null): Promis
   if (dayTypeId !== null && !isNonPracticeDay(dayTypeId)) {
     throw new Error(`Unknown day type "${dayTypeId}"`);
   }
-  const schedule = await getSchedule();
-  if (dayTypeId === null) {
-    delete schedule[date];
-  } else {
-    schedule[date] = dayTypeId;
-  }
-  await writeJson<PlanSchedule>(SCHEDULE_KEY, SCHEDULE_PATH, schedule);
+  if (dayTypeId === null) await deleteScheduleEntry(date);
+  else await setScheduleEntry(date, dayTypeId);
 }
 
 export async function getTracks(): Promise<Track[]> {
-  return readJson<Track[]>(TRACKS_KEY, TRACKS_PATH, tracksSeed as Track[]);
+  return listTracks();
 }
 
 export type Teacher = { name: string };
@@ -210,56 +160,23 @@ export async function getDoneTasks(
   date: string,
   student: Student,
 ): Promise<string[]> {
-  const logId = doneLogId(student, date);
-  if (redis) {
-    const raw = (await redis.get<string[]>(redisKey(logId))) ?? [];
-    const { keys, changed } = migrateKeys(raw);
-    if (changed) await redis.set(redisKey(logId), keys);
-    return keys;
-  }
-  const log = readLog();
-  const raw = log[logId] ?? [];
-  const { keys, changed } = migrateKeys(raw);
-  if (changed) {
-    log[logId] = keys;
-    writeLog(log);
-  }
-  return keys;
+  return getDone(doneLogId(student, date));
 }
 
 // The student's done keys for the `days` dates before `beforeDate`, newest
-// first — the input for ranking a rotating item's tracks. The file fallback
-// reads sequentially because getDoneTasks may rewrite the shared log file.
+// first — the input for ranking a rotating item's tracks.
 export async function getDoneHistory(
   student: Student,
   beforeDate: string,
   days: number,
 ): Promise<{ date: string; done: string[] }[]> {
   const dates = Array.from({ length: days }, (_, i) => notesAddDays(beforeDate, -(i + 1)));
-  if (redis) {
-    return Promise.all(dates.map(async (date) => ({ date, done: await getDoneTasks(date, student) })));
-  }
-  const out: { date: string; done: string[] }[] = [];
-  for (const date of dates) out.push({ date, done: await getDoneTasks(date, student) });
-  return out;
+  return Promise.all(dates.map(async (date) => ({ date, done: await getDoneTasks(date, student) })));
 }
 
 export async function toggleTask(date: string, taskKey: string): Promise<string[]> {
   const student = await getActiveStudent();
-  const logId = doneLogId(student, date);
-  const tasks = await getDoneTasks(date, student);
-  const next = tasks.includes(taskKey)
-    ? tasks.filter((x) => x !== taskKey)
-    : [...tasks, taskKey];
-
-  if (redis) {
-    await redis.set(redisKey(logId), next);
-  } else {
-    const log = readLog();
-    log[logId] = next;
-    writeLog(log);
-  }
-  return next;
+  return toggleDone(doneLogId(student, date), taskKey);
 }
 
 export type MonthProgressEntry =
@@ -355,48 +272,36 @@ export async function savePlan(
     throw new Error(`Plan "${plan.id}" is frozen — a past date has practice or a note, so it cannot be edited`);
   }
 
-  if (newReferenceTracks.length > 0) {
-    const tracks = await getTracks();
-    const existing = new Set(tracks.map((t) => t.id));
-    const toAdd = newReferenceTracks.filter((t) => !existing.has(t.id));
-    if (toAdd.length > 0) {
-      await writeJson<Track[]>(TRACKS_KEY, TRACKS_PATH, [...tracks, ...toAdd]);
-    }
-  }
+  if (newReferenceTracks.length > 0) await addTracks(newReferenceTracks);
 
-  const plans = await getPlans();
-  const idx = plans.findIndex((p) => p.id === plan.id);
-  const next = idx >= 0
-    ? [...plans.slice(0, idx), plan, ...plans.slice(idx + 1)]
-    : [...plans, plan];
-  await writeJson<Plan[]>(PLANS_KEY, PLANS_PATH, next);
+  await putPlan(plan);
 }
 
 export async function createPlan(
   plan: Plan,
   activeFrom: string,
 ): Promise<{ id: string }> {
-  const plans = await getPlans();
-  const newId = nextPlanId(plans);
-  const toSave: Plan = { ...plan, id: newId, createdDate: plan.createdDate || todayLocal() };
-  await writeJson<Plan[]>(PLANS_KEY, PLANS_PATH, [...plans, toSave]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _ignored, ...rest } = plan;
+  const { id: newId } = await createPlanWithNewId({
+    ...rest,
+    createdDate: plan.createdDate || todayLocal(),
+  });
 
   const today = todayLocal();
   const schedule = await getSchedule();
   const anchor = firstPracticeDayOnOrAfter(schedule, activeFrom < today ? today : activeFrom);
-  await writeJson<PlanSchedule>(SCHEDULE_KEY, SCHEDULE_PATH, applyActiveFrom(schedule, newId, anchor));
+  await writeScheduleDiff(schedule, applyActiveFrom(schedule, newId, anchor));
   return { id: newId };
 }
 
 export async function addTrack(track: Track, blobUrl: string): Promise<void> {
-  const tracks = await getTracks();
-  const next = [...tracks, track];
-  await writeJson<Track[]>(TRACKS_KEY, TRACKS_PATH, next);
+  await addTracks([track]);
   await setTrackBlobUrl(track.id, blobUrl);
 }
 
 export async function getTrackBlobUrl(id: string): Promise<string | null> {
-  return (await getTrackBlobs())[id] ?? null;
+  return lookupTrackBlobUrl(id);
 }
 
 export async function getChecklistImageBlobs(): Promise<Record<string, string>> {
@@ -415,11 +320,7 @@ export async function getChecklistImageBlobUrl(id: string): Promise<string | nul
 export async function getNotesForDate(
   date: string,
 ): Promise<Record<string, string>> {
-  if (redis) {
-    return (await redis.get<Record<string, string>>(notesRedisKey(date))) ?? {};
-  }
-  const all = readNotes();
-  return all[date] ?? {};
+  return getNotes(date);
 }
 
 export async function saveTrackNote(
@@ -427,24 +328,7 @@ export async function saveTrackNote(
   trackId: string,
   note: string,
 ): Promise<void> {
-  const trimmed = note.trim();
-
-  if (redis) {
-    const day =
-      (await redis.get<Record<string, string>>(notesRedisKey(date))) ?? {};
-    if (trimmed === "") delete day[trackId];
-    else day[trackId] = trimmed;
-    await redis.set(notesRedisKey(date), day);
-    return;
-  }
-
-  const all = readNotes();
-  const day = all[date] ?? {};
-  if (trimmed === "") delete day[trackId];
-  else day[trackId] = trimmed;
-  if (Object.keys(day).length === 0) delete all[date];
-  else all[date] = day;
-  writeNotes(all);
+  await setNote(date, trackId, note);
 }
 
 export async function getNotesInRange(

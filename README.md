@@ -73,7 +73,7 @@ Current example (the committed demo seed):
    node --env-file=.env.local scripts/migrate-checklist-images.mjs --execute  # upload to Blob + write checklist:blobs
    node scripts/rewrite-checklist-seed.mjs
    ```
-2. **Turn items on or off for a plan:** in the Upstash console, edit the active plan's `checklist` array in `plans:list` (a list of item `id`s). The array order sets the left-to-right order within each row; the rows themselves always appear in category order (Posture, Violin hand, Bow hand, Other).
+2. **Turn items on or off for a plan:** in the Upstash console, open the `plan:all` hash, edit the active plan's field (its id) and change the `checklist` array (a list of item `id`s). The array order sets the left-to-right order within each row; the rows themselves always appear in category order (Posture, Violin hand, Bow hand, Other).
 
 Ids not in the catalog are silently skipped, so it's safe to add an id to a plan before the code that defines it is deployed.
 
@@ -171,7 +171,35 @@ String Steps is single-tenant — each deployment is one family's instance. To r
 
    Re-deploy after changing environment variables so they take effect.
 6. **Deploy.** On first load you'll hit the passcode gate; after logging in, the app boots from the committed demo seed, so it works right away — one sample plan with a play-along track and the emoji checklist.
-7. **Make it yours.** Edit the live data in the Upstash console — the student/teacher roster (`students:list`, `teacher:info`), plans (`plans:list`), schedule (`schedule:map`), and tracks (`tracks:list`) — and add your own media (see below). The committed `data/*.json` files only seed **empty** Redis keys, so changing them later never overwrites a populated production store.
+7. **Make it yours.** Edit the live data in the Upstash console — the student/teacher roster (`students:list`, `teacher:info`), plans (`plan:all`), schedule (`schedule:day`), and tracks (`track:all`, `track:blob`) — and add your own media (see below). The committed `data/*.json` files only seed **empty** Redis keys, so changing them later never overwrites a populated production store.
+
+### Storage layout
+
+Each collection is a Redis hash or set so that one write touches one record and two people saving at once cannot erase each other's change ([#44](https://github.com/sjiang1/string-steps/issues/44)). In local dev the same data lives in `data/*.json` with the same shape.
+
+| Key | Type | Field → value | Dev file |
+|---|---|---|---|
+| `done:<date>` (linked account: `done:<date>:<studentId>`) | set | tap key `trackId-type[:focus]-repIndex` | `practice-log.json` (one property per day) |
+| `note:<date>` | hash | track id → note text | `notes-log.json` (one property per day) |
+| `track:all` | hash | track id → track JSON | `tracks.json` (object keyed by id) |
+| `track:blob` | hash | track id → Blob URL | `track-blobs.json` |
+| `plan:all` | hash | plan id → plan JSON | `plans.json` (object keyed by id) |
+| `plan:next-id` | string | counter new plan ids come from | derived from `plans.json` |
+| `schedule:day` | hash | date → plan id or day-type id | `plan-schedule.json` |
+| `students:list`, `teacher:info`, `checklist:blobs` | JSON value | whole collection | same-named file |
+
+When hand-editing in the Upstash console: schedule values, notes, URLs and tap keys are plain text (type `0`, not `"0"`); tracks and plans are one JSON object per field. A plan added by hand is safe — `plan:next-id` skips over ids that already exist.
+
+### Migrating an existing deployment
+
+Deployments created before #44 hold the old one-value-per-key layout (`practice:*`, `notes:*`, `tracks:list`, `tracks:blobs`, `plans:list`, `schedule:map`). Migrate in one quiet moment:
+
+```bash
+node --env-file=.env.local scripts/migrate-storage.mjs            # dry run: prints what it would write
+node --env-file=.env.local scripts/migrate-storage.mjs --execute  # write the new keys; old keys untouched
+```
+
+Then deploy the new version and run `--execute` once more (it writes only what is missing, so anything saved between the two steps is picked up). Smoke-test the Practice and Plans pages. To roll back, redeploy the previous version — it still reads the old keys, which were never changed. After a week, delete the old keys from the Upstash console.
 
 > **De-identification.** Real names live only in your production Redis. The repo ships fictional defaults — Mozart X / Mama Bear / Mr. G in [data/students.json](data/students.json) and [data/teacher.json](data/teacher.json) — so nothing personal is committed.
 
@@ -204,7 +232,7 @@ The exact request/response shapes are the source of truth in [src/app/api/tracks
 
 ### Manual (Mac + ffmpeg)
 
-Encode a streaming-friendly MP4, then upload it to your Blob store and add a matching entry to `tracks:list` in Redis:
+Encode a streaming-friendly MP4, then upload it to your Blob store and register it in Redis: a field in `track:all` (track id → the track's JSON) and one in `track:blob` (track id → Blob URL):
 
 ```bash
 ffmpeg -i input.mov \
@@ -228,4 +256,4 @@ node --env-file=.env.local scripts/reencode-videos.mjs
 node --env-file=.env.local scripts/reencode-videos.mjs --execute
 ```
 
-It flags any video that isn't `faststart` or exceeds **2.5 Mbps**, re-encodes those to 720p / `faststart` / ~1.2 Mbps (no upscaling), uploads to a fresh Blob path, repoints Redis, and deletes the old file. Requires `ffmpeg`/`ffprobe` installed and the `KV_REST_API_*` + `BLOB_READ_WRITE_TOKEN` env vars (i.e. your `.env.local`). Safe to run anytime — it only touches non-conforming videos.
+It flags any video that isn't `faststart` or exceeds **2.5 Mbps**, re-encodes those to 720p / `faststart` / ~1.2 Mbps (no upscaling), uploads to a fresh Blob path, repoints `track:blob`, and deletes the old file. Requires `ffmpeg`/`ffprobe` installed and the `KV_REST_API_*` + `BLOB_READ_WRITE_TOKEN` env vars (i.e. your `.env.local`). Safe to run anytime — it only touches non-conforming videos.

@@ -9,6 +9,8 @@
 **Tech Stack:** Next.js 16.2.7 (app router, `after()`, route `maxDuration`), `ffmpeg-static` 5.3.0, `@vercel/blob`, `@upstash/redis`, Vitest 4 + Testing Library.
 
 > **Status (2026-11-15):** Tasks 1–2 shipped in PR #43. Tasks 3–11 wait for the data-layer redesign (stores as Redis hashes/sets instead of whole JSON values), which Siyuan chose to do first. Task 3 below already assumes that shape; re-check it against the redesign's storage helpers before resuming.
+>
+> **Update (2026-11-16):** the storage helpers landed in #44 (`src/app/storage.ts`): `hashGetAll/hashSet/hashSetIfAbsent/hashDelete(redisKey, file: FileRef, codec, …)` with `stringCodec`/`jsonCodec<T>()`, over a non-deserialising client. Re-point Task 3 at those signatures (marks are strings → `stringCodec`; key `track:reencode`) before resuming.
 
 **Spec:** [docs/superpowers/specs/2026-11-02-auto-reencode-uploads-design.md](../specs/2026-11-02-auto-reencode-uploads-design.md). Issue [#31](https://github.com/sjiang1/string-steps/issues/31), branch `31-auto-reencode-uploads`.
 

@@ -11,6 +11,7 @@ import {
   blobPathnameFor,
   proxyPathFor,
 } from "./media-migration.mjs";
+import { hashReplyToRecord } from "./storage-migration.mjs";
 
 const EXECUTE = process.argv.includes("--execute");
 const PUBLIC_DIR = join(process.cwd(), "public");
@@ -24,9 +25,9 @@ async function main() {
     );
   }
 
-  const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN });
-  const tracks = (await redis.get("tracks:list")) ?? [];
-  const blobs = (await redis.get("tracks:blobs")) ?? {};
+  const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN, automaticDeserialization: false });
+  // track:all and track:blob are hashes; Track objects are JSON strings.
+  const tracks = Object.values(hashReplyToRecord(await redis.hgetall("track:all"))).map((s) => JSON.parse(s));
   const toMigrate = tracks.filter(needsMigration);
 
   console.log(
@@ -48,9 +49,10 @@ async function main() {
       addRandomSuffix: false,
       allowOverwrite: true,
     });
-    blobs[track.id] = url;
     track.file = proxyPathFor(track);
-    console.log(`  uploaded -> ${url}`);
+    await redis.hset("track:blob", { [track.id]: url });
+    await redis.hset("track:all", { [track.id]: JSON.stringify(track) });
+    console.log(`  uploaded -> ${url}; written to track:blob + track:all`);
   }
 
   if (!EXECUTE) {
@@ -58,9 +60,7 @@ async function main() {
     return;
   }
 
-  await redis.set("tracks:blobs", blobs);
-  await redis.set("tracks:list", tracks);
-  console.log("\nWrote tracks:blobs and tracks:list to Redis.");
+  console.log(`\n${toMigrate.length} track(s) written to track:all and track:blob.`);
 }
 
 main().catch((err) => {

@@ -67,15 +67,23 @@ function setupScheduleData(data: Record<string, string>): void {
   process.env.SCHEDULE_JSON_PATH = file;
 }
 
+// data/plans.json is an object keyed by id; tests may still pass an array.
 function setupPlansData(data: unknown): void {
   const file = join(tempDir, "plans.json");
-  writeFileSync(file, JSON.stringify(data));
+  const byId = Array.isArray(data)
+    ? Object.fromEntries((data as { id: string }[]).map((p) => [p.id, p]))
+    : data;
+  writeFileSync(file, JSON.stringify(byId));
   process.env.PLANS_JSON_PATH = file;
 }
 
+// data/tracks.json is an object keyed by id; tests may still pass an array.
 function setupTracksData(data: unknown): string {
   const file = join(tempDir, "tracks.json");
-  writeFileSync(file, JSON.stringify(data));
+  const byId = Array.isArray(data)
+    ? Object.fromEntries((data as { id: string }[]).map((t) => [t.id, t]))
+    : data;
+  writeFileSync(file, JSON.stringify(byId));
   process.env.TRACKS_JSON_PATH = file;
   return file;
 }
@@ -656,9 +664,7 @@ describe("savePlan — inline reference tracks", () => {
       ),
     ).rejects.toThrow(/frozen|past/i);
 
-    expect(JSON.parse(readFileSync(tracksFile, "utf-8")).map((t: { id: string }) => t.id)).toEqual([
-      "scale",
-    ]);
+    expect(Object.keys(JSON.parse(readFileSync(tracksFile, "utf-8")))).toEqual(["scale"]);
   });
 });
 
@@ -884,23 +890,8 @@ describe("createPlan — schedule activation", () => {
   });
 });
 
-describe("getDoneTasks — lazy log-key migration", () => {
-  it("migrates legacy unindexed keys to indexed form on first read", async () => {
-    const data = { "2026-04-09": ["scale-sing", "scale-playWithTrack-0"] };
-    writeFileSync(tempFile, JSON.stringify(data));
-    const { getDoneTasks } = await loadActions();
-
-    const result = await getDoneTasks("2026-04-09", PRIMARY);
-
-    expect(result).toEqual(["scale-sing-0", "scale-playWithTrack-0"]);
-    const persisted = JSON.parse(readFileSync(tempFile, "utf-8"));
-    expect(persisted["2026-04-09"]).toEqual([
-      "scale-sing-0",
-      "scale-playWithTrack-0",
-    ]);
-  });
-
-  it("leaves already-indexed keys untouched and does not rewrite the file", async () => {
+describe("getDoneTasks", () => {
+  it("reads without rewriting the file", async () => {
     const data = { "2026-04-09": ["scale-sing-0", "scale-sing-1"] };
     writeFileSync(tempFile, JSON.stringify(data));
     const statBefore = statSync(tempFile).mtimeMs;

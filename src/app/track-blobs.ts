@@ -1,18 +1,19 @@
-// tracks:blobs — track ID → public Blob URL of its media file.
-import { dataPath, readJson, writeJson } from "./storage";
+// track:blob — track ID → public Blob URL of its media file, as a Redis hash.
+// Written by the upload route, the recording scripts and the re-encode job,
+// each touching only its own field.
+import { dataPath, hashGet, hashGetAll, hashSet, stringCodec, type FileRef } from "./storage";
 
-const TRACK_BLOBS_KEY = "tracks:blobs";
-const trackBlobsPath = () => dataPath("TRACK_BLOBS_JSON_PATH", "track-blobs.json");
+const TRACK_BLOBS_KEY = "track:blob";
+const fileRef = (): FileRef => ({ path: dataPath("TRACK_BLOBS_JSON_PATH", "track-blobs.json") });
 
 export async function getTrackBlobs(): Promise<Record<string, string>> {
-  return readJson<Record<string, string>>(TRACK_BLOBS_KEY, trackBlobsPath(), {});
+  return hashGetAll(TRACK_BLOBS_KEY, fileRef(), stringCodec);
 }
 
-// Read-modify-write of one entry. Always re-reads the map first so a URL
-// written by someone else in the meantime (the re-encode job, the manual
-// script) is kept rather than overwritten with a stale copy.
+export async function getTrackBlobUrl(id: string): Promise<string | null> {
+  return hashGet(TRACK_BLOBS_KEY, fileRef(), stringCodec, id);
+}
+
 export async function setTrackBlobUrl(id: string, url: string): Promise<void> {
-  const blobs = await getTrackBlobs();
-  blobs[id] = url;
-  await writeJson(TRACK_BLOBS_KEY, trackBlobsPath(), blobs);
+  await hashSet(TRACK_BLOBS_KEY, fileRef(), stringCodec, id, url);
 }
