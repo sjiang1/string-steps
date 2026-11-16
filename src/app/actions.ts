@@ -1,7 +1,6 @@
 "use server";
 
 import { join } from "path";
-import scheduleData from "@data/plan-schedule.json";
 import plansSeed from "@data/plans.json";
 import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
@@ -20,16 +19,21 @@ import { getDone, toggleDone } from "./practice-log";
 import { getNotes, setNote } from "./notes";
 import { getTrackBlobUrl as lookupTrackBlobUrl, setTrackBlobUrl } from "./track-blobs";
 import { getTracks as listTracks, addTracks } from "./tracks";
+import {
+  getScheduleMap,
+  setScheduleEntry,
+  setScheduleEntryIfAbsent,
+  deleteScheduleEntry,
+  writeScheduleDiff,
+} from "./schedule";
 
 
 const PLANS_KEY = "plans:list";
-const SCHEDULE_KEY = "schedule:map";
 const CHECKLIST_BLOBS_KEY = "checklist:blobs";
 const STUDENTS_KEY = "students:list";
 const TEACHER_KEY = "teacher:info";
 
 const PLANS_PATH = process.env.PLANS_JSON_PATH ?? join(process.cwd(), "data/plans.json");
-const SCHEDULE_PATH = process.env.SCHEDULE_JSON_PATH ?? join(process.cwd(), "data/plan-schedule.json");
 const CHECKLIST_BLOBS_PATH =
   process.env.CHECKLIST_BLOBS_JSON_PATH ?? join(process.cwd(), "data/checklist-blobs.json");
 const STUDENTS_PATH = process.env.STUDENTS_JSON_PATH ?? join(process.cwd(), "data/students.json");
@@ -110,10 +114,14 @@ function ensureTodayInSchedule(
 }
 
 export async function getSchedule(): Promise<PlanSchedule> {
-  const raw = await readJson<PlanSchedule>(SCHEDULE_KEY, SCHEDULE_PATH, scheduleData as PlanSchedule);
-  const { schedule, mutated } = ensureTodayInSchedule(raw, todayLocal());
+  const today = todayLocal();
+  const raw = await getScheduleMap();
+  const { schedule, mutated } = ensureTodayInSchedule(raw, today);
   if (mutated) {
-    await writeJson<PlanSchedule>(SCHEDULE_KEY, SCHEDULE_PATH, schedule);
+    // Set-if-absent: a parallel request may have filled today first; if so,
+    // its value wins and we re-read rather than return our guess.
+    const written = await setScheduleEntryIfAbsent(today, schedule[today]);
+    if (!written) return getScheduleMap();
   }
   return schedule;
 }
@@ -130,13 +138,8 @@ export async function setDayType(date: string, dayTypeId: string | null): Promis
   if (dayTypeId !== null && !isNonPracticeDay(dayTypeId)) {
     throw new Error(`Unknown day type "${dayTypeId}"`);
   }
-  const schedule = await getSchedule();
-  if (dayTypeId === null) {
-    delete schedule[date];
-  } else {
-    schedule[date] = dayTypeId;
-  }
-  await writeJson<PlanSchedule>(SCHEDULE_KEY, SCHEDULE_PATH, schedule);
+  if (dayTypeId === null) await deleteScheduleEntry(date);
+  else await setScheduleEntry(date, dayTypeId);
 }
 
 export async function getTracks(): Promise<Track[]> {
@@ -303,7 +306,7 @@ export async function createPlan(
   const today = todayLocal();
   const schedule = await getSchedule();
   const anchor = firstPracticeDayOnOrAfter(schedule, activeFrom < today ? today : activeFrom);
-  await writeJson<PlanSchedule>(SCHEDULE_KEY, SCHEDULE_PATH, applyActiveFrom(schedule, newId, anchor));
+  await writeScheduleDiff(schedule, applyActiveFrom(schedule, newId, anchor));
   return { id: newId };
 }
 
