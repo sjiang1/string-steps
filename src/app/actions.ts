@@ -1,7 +1,6 @@
 "use server";
 
 import { join } from "path";
-import plansSeed from "@data/plans.json";
 import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
 import { cookies } from "next/headers";
@@ -14,11 +13,12 @@ import { firstPracticeDayOnOrAfter, applyActiveFrom } from "./plans/schedule-act
 import { doneLogId, findPrimary, type Student } from "./students";
 import { isRotating, rotatingItemProgress } from "./rotation";
 import { doneCountForTask } from "./task-keys";
-import { readJson, writeJson } from "./storage";
+import { readJson } from "./storage";
 import { getDone, toggleDone } from "./practice-log";
 import { getNotes, setNote } from "./notes";
 import { getTrackBlobUrl as lookupTrackBlobUrl, setTrackBlobUrl } from "./track-blobs";
 import { getTracks as listTracks, addTracks } from "./tracks";
+import { getPlanMap, putPlan, createPlanWithNewId } from "./plan-store";
 import {
   getScheduleMap,
   setScheduleEntry,
@@ -28,12 +28,10 @@ import {
 } from "./schedule";
 
 
-const PLANS_KEY = "plans:list";
 const CHECKLIST_BLOBS_KEY = "checklist:blobs";
 const STUDENTS_KEY = "students:list";
 const TEACHER_KEY = "teacher:info";
 
-const PLANS_PATH = process.env.PLANS_JSON_PATH ?? join(process.cwd(), "data/plans.json");
 const CHECKLIST_BLOBS_PATH =
   process.env.CHECKLIST_BLOBS_JSON_PATH ?? join(process.cwd(), "data/checklist-blobs.json");
 const STUDENTS_PATH = process.env.STUDENTS_JSON_PATH ?? join(process.cwd(), "data/students.json");
@@ -44,14 +42,6 @@ function notesAddDays(date: string, delta: number): string {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + delta);
   return dt.toISOString().slice(0, 10);
-}
-
-function nextPlanId(plans: Plan[]): string {
-  const numericIds = plans
-    .map((p) => parseInt(p.id, 10))
-    .filter((n) => !isNaN(n));
-  const max = numericIds.length === 0 ? -1 : Math.max(...numericIds);
-  return String(max + 1);
 }
 
 // --- Public API ---
@@ -89,9 +79,7 @@ function normalizePlans(plans: Plan[]): Plan[] {
 }
 
 export async function getPlans(): Promise<Plan[]> {
-  return normalizePlans(
-    await readJson<Plan[]>(PLANS_KEY, PLANS_PATH, plansSeed as unknown as Plan[]),
-  );
+  return normalizePlans(Object.values(await getPlanMap()));
 }
 
 function ensureTodayInSchedule(
@@ -286,22 +274,19 @@ export async function savePlan(
 
   if (newReferenceTracks.length > 0) await addTracks(newReferenceTracks);
 
-  const plans = await getPlans();
-  const idx = plans.findIndex((p) => p.id === plan.id);
-  const next = idx >= 0
-    ? [...plans.slice(0, idx), plan, ...plans.slice(idx + 1)]
-    : [...plans, plan];
-  await writeJson<Plan[]>(PLANS_KEY, PLANS_PATH, next);
+  await putPlan(plan);
 }
 
 export async function createPlan(
   plan: Plan,
   activeFrom: string,
 ): Promise<{ id: string }> {
-  const plans = await getPlans();
-  const newId = nextPlanId(plans);
-  const toSave: Plan = { ...plan, id: newId, createdDate: plan.createdDate || todayLocal() };
-  await writeJson<Plan[]>(PLANS_KEY, PLANS_PATH, [...plans, toSave]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _ignored, ...rest } = plan;
+  const { id: newId } = await createPlanWithNewId({
+    ...rest,
+    createdDate: plan.createdDate || todayLocal(),
+  });
 
   const today = todayLocal();
   const schedule = await getSchedule();

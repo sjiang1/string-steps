@@ -67,9 +67,13 @@ function setupScheduleData(data: Record<string, string>): void {
   process.env.SCHEDULE_JSON_PATH = file;
 }
 
+// data/plans.json is an object keyed by id; tests may still pass an array.
 function setupPlansData(data: unknown): void {
   const file = join(tempDir, "plans.json");
-  writeFileSync(file, JSON.stringify(data));
+  const byId = Array.isArray(data)
+    ? Object.fromEntries((data as { id: string }[]).map((p) => [p.id, p]))
+    : data;
+  writeFileSync(file, JSON.stringify(byId));
   process.env.PLANS_JSON_PATH = file;
 }
 

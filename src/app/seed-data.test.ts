@@ -10,13 +10,14 @@ import { todayLocal } from "./today";
 
 const trackList = Object.values(tracks) as { id: string; type: string; file: string | null }[];
 const trackIds = new Set(trackList.map((t) => t.id));
-const planIds = new Set((plans as { id: string }[]).map((p) => p.id));
+const planList = Object.values(plans) as { id: string; items: { trackChoices: string[] }[] }[];
+const planIds = new Set(planList.map((p) => p.id));
 const dayTypeIds = new Set((dayTypes as { id: string }[]).map((d) => d.id));
 const scheduleMap = schedule as Record<string, string>;
 
 describe("committed seed data is internally consistent", () => {
   it("every plan item references a track that exists", () => {
-    for (const plan of plans as { id: string; items: { trackChoices: string[] }[] }[]) {
+    for (const plan of planList) {
       for (const item of plan.items) {
         for (const trackId of item.trackChoices) {
           expect(trackIds.has(trackId), `plan ${plan.id} item trackId ${trackId}`).toBe(true);
