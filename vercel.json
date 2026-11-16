@@ -1,0 +1,7 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "44-store-each-record-on-its-own": false
+    }
+  }
+}
