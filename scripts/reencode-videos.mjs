@@ -4,12 +4,15 @@
 // Execute (fix):    node --env-file=.env.local scripts/reencode-videos.mjs --execute
 //
 // Why: iOS uploads (via the Shortcut) can land non-faststart and/or high-bitrate
-// (see #26) and stutter. The ffmpeg recipe (~1.2 Mbps, faststart) streams fine.
-// This tool ffprobes EVERY video in track:blob, flags any that are non-faststart
-// or over the bitrate ceiling, and (on --execute) re-encodes just those with the
-// standard recipe and swaps them on Blob.
-//
-// Stopgap until on-device encoding produces streaming-ready files directly (#32).
+// and stutter. The ffmpeg recipe (~1.2 Mbps, faststart) streams fine. Since #31,
+// POST /api/tracks re-encodes every upload automatically and shows a ⚠️ next to
+// the video until that has succeeded; this script is the manual fallback. It
+// ffprobes EVERY video in track:blob, flags any that are non-faststart or over
+// the bitrate ceiling, (on --execute) re-encodes just those with the same recipe
+// and swaps them on Blob, and clears a stuck ⚠️ (the track:reencode mark) for
+// every video that conforms afterwards. Marks are cleared one field at a time
+// (HDEL), never by writing the map back, so an upload that arrives mid-run
+// keeps its mark.
 //
 // Cache-safe swap: Blob caches by pathname (cache-control 30 days), so the
 // re-encoded file goes to a NEW pathname (videos/<id>.mp4); we repoint track:blob
@@ -58,7 +61,18 @@ async function main() {
   // track:all and track:blob are hashes; Track objects are JSON strings.
   const tracks = Object.values(hashReplyToRecord(await redis.hgetall("track:all"))).map((s) => JSON.parse(s));
   const blobs = hashReplyToRecord(await redis.hgetall("track:blob"));
+  // Only the field names matter here: which videos still carry a ⚠️.
+  const marks = hashReplyToRecord(await redis.hgetall("track:reencode"));
   const videos = tracks.filter((t) => t.type === "video" && blobs[t.id]);
+  async function clearMark(id) {
+    if (!Object.hasOwn(marks, id)) return;
+    if (EXECUTE) {
+      await redis.hdel("track:reencode", id);
+      console.log(`  cleared mark: ${id}`);
+    } else {
+      console.log(`  would clear mark: ${id}`);
+    }
+  }
   const dir = mkdtempSync(join(tmpdir(), "reencode-"));
   console.log(`mode=${EXECUTE ? "EXECUTE" : "DRY-RUN (audit)"}  videos=${videos.length}`);
 
@@ -72,6 +86,7 @@ async function main() {
         ` => ${flag ? "RE-ENCODE" : "ok"}`,
     );
     if (flag) flagged.push(t);
+    else await clearMark(t.id);
   }
 
   if (flagged.length === 0) {
@@ -105,6 +120,7 @@ async function main() {
     });
     blobs[t.id] = newUrl;
     await redis.hset("track:blob", { [t.id]: newUrl });
+    await clearMark(t.id);
     if (newPathname !== oldPathname) await del(oldUrl, { token: BLOB_READ_WRITE_TOKEN });
     console.log(`  uploaded -> ${newUrl}; redis updated; deleted old ${oldPathname}`);
   }
