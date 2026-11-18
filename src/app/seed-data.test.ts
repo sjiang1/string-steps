@@ -8,14 +8,16 @@ import dayTypes from "@data/day-types.json";
 import { mostRecentPastPracticePlanIdAsOf } from "./plans";
 import { todayLocal } from "./today";
 
-const trackIds = new Set((tracks as { id: string }[]).map((t) => t.id));
-const planIds = new Set((plans as { id: string }[]).map((p) => p.id));
+const trackList = Object.values(tracks) as { id: string; type: string; file: string | null }[];
+const trackIds = new Set(trackList.map((t) => t.id));
+const planList = Object.values(plans) as { id: string; items: { trackChoices: string[] }[] }[];
+const planIds = new Set(planList.map((p) => p.id));
 const dayTypeIds = new Set((dayTypes as { id: string }[]).map((d) => d.id));
 const scheduleMap = schedule as Record<string, string>;
 
 describe("committed seed data is internally consistent", () => {
   it("every plan item references a track that exists", () => {
-    for (const plan of plans as { id: string; items: { trackChoices: string[] }[] }[]) {
+    for (const plan of planList) {
       for (const item of plan.items) {
         for (const trackId of item.trackChoices) {
           expect(trackIds.has(trackId), `plan ${plan.id} item trackId ${trackId}`).toBe(true);
@@ -37,7 +39,7 @@ describe("committed seed data is internally consistent", () => {
   });
 
   it("every track with a /demo/ file points at an existing public asset", () => {
-    for (const t of tracks as { type: string; file: string | null }[]) {
+    for (const t of trackList) {
       if (t.file && t.file.startsWith("/demo/")) {
         expect(existsSync(join(process.cwd(), "public", t.file)), `missing public${t.file}`).toBe(true);
       }

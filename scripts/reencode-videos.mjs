@@ -5,14 +5,14 @@
 //
 // Why: iOS uploads (via the Shortcut) can land non-faststart and/or high-bitrate
 // (see #26) and stutter. The ffmpeg recipe (~1.2 Mbps, faststart) streams fine.
-// This tool ffprobes EVERY video in tracks:blobs, flags any that are non-faststart
+// This tool ffprobes EVERY video in track:blob, flags any that are non-faststart
 // or over the bitrate ceiling, and (on --execute) re-encodes just those with the
 // standard recipe and swaps them on Blob.
 //
 // Stopgap until on-device encoding produces streaming-ready files directly (#32).
 //
 // Cache-safe swap: Blob caches by pathname (cache-control 30 days), so the
-// re-encoded file goes to a NEW pathname (videos/<id>.mp4); we repoint tracks:blobs
+// re-encoded file goes to a NEW pathname (videos/<id>.mp4); we repoint track:blob
 // and delete the old object. New URL => no stale CDN/browser cache.
 import { execFileSync } from "node:child_process";
 import { readFileSync, statSync, mkdtempSync } from "node:fs";
@@ -20,60 +20,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Redis } from "@upstash/redis";
 import { put, del } from "@vercel/blob";
+import { needsReencode, ffmpegArgs, newPathnameFor, atomsAreFaststart } from "./video-recipe.mjs";
+import { hashReplyToRecord } from "./storage-migration.mjs";
 
 const EXECUTE = process.argv.includes("--execute");
-
-// A served video must stream cleanly: faststart (moov at front) and a sane
-// bitrate. The ffmpeg recipe yields ~1.2 Mbps; the bad iOS files were 5.5–11.5.
-export const BITRATE_CEILING = 2_500_000;
-
-export function needsReencode({ faststart, bitrate }) {
-  if (!faststart) return true;
-  if (typeof bitrate === "number" && bitrate > BITRATE_CEILING) return true;
-  return false;
-}
-
-// Mirrors the README ffmpeg recipe, but caps height at 720 WITHOUT upscaling
-// smaller sources (min(720,ih)). The comma in min() is escaped for ffmpeg's
-// filtergraph parser since this is passed as a single argv element.
-export function ffmpegArgs(inPath, outPath) {
-  return [
-    "-y", "-loglevel", "error",
-    "-i", inPath,
-    "-vcodec", "libx264", "-crf", "28", "-preset", "medium",
-    "-vf", "scale=-2:min(720\\,ih)",
-    "-c:a", "aac", "-b:a", "128k",
-    "-movflags", "+faststart",
-    outPath,
-  ];
-}
-
-// New, cache-busting pathname. If the video already lives at the target path
-// (e.g. a prior re-encode), add a suffix so the URL still changes.
-export function newPathnameFor(id, oldPathname) {
-  const target = `videos/${id}.mp4`;
-  return target === oldPathname ? `videos/${id}-reencoded.mp4` : target;
-}
-
-function atomsAreFaststart(buf) {
-  let o = 0;
-  const seq = [];
-  while (o + 8 <= buf.length && seq.length < 8) {
-    let size = buf.readUInt32BE(o);
-    const type = buf.toString("latin1", o + 4, o + 8);
-    if (!/^[ -~]{4}$/.test(type)) break;
-    seq.push(type);
-    if (size === 1) {
-      if (o + 16 > buf.length) break;
-      size = Number(buf.readBigUInt64BE(o + 8));
-    }
-    if (size < 8) break;
-    o += size;
-  }
-  const m = seq.indexOf("moov");
-  const d = seq.indexOf("mdat");
-  return m > -1 && (d < 0 || m < d);
-}
 
 async function inspectVideo(url) {
   // faststart: read the first 256 KB and check moov-vs-mdat order
@@ -104,9 +54,10 @@ async function main() {
         "(run with: node --env-file=.env.local scripts/reencode-videos.mjs)",
     );
   }
-  const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN });
-  const tracks = (await redis.get("tracks:list")) ?? [];
-  const blobs = (await redis.get("tracks:blobs")) ?? {};
+  const redis = new Redis({ url: KV_REST_API_URL, token: KV_REST_API_TOKEN, automaticDeserialization: false });
+  // track:all and track:blob are hashes; Track objects are JSON strings.
+  const tracks = Object.values(hashReplyToRecord(await redis.hgetall("track:all"))).map((s) => JSON.parse(s));
+  const blobs = hashReplyToRecord(await redis.hgetall("track:blob"));
   const videos = tracks.filter((t) => t.type === "video" && blobs[t.id]);
   const dir = mkdtempSync(join(tmpdir(), "reencode-"));
   console.log(`mode=${EXECUTE ? "EXECUTE" : "DRY-RUN (audit)"}  videos=${videos.length}`);
@@ -153,7 +104,7 @@ async function main() {
       allowOverwrite: true,
     });
     blobs[t.id] = newUrl;
-    await redis.set("tracks:blobs", blobs);
+    await redis.hset("track:blob", { [t.id]: newUrl });
     if (newPathname !== oldPathname) await del(oldUrl, { token: BLOB_READ_WRITE_TOKEN });
     console.log(`  uploaded -> ${newUrl}; redis updated; deleted old ${oldPathname}`);
   }

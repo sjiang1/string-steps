@@ -1,28 +1,66 @@
-[
-  {
+{
+  "0": {
     "id": "0",
     "createdDate": "",
     "description": "Welcome! This is a sample practice plan — edit it, or create your own from the Plans tab.",
     "items": [
       {
-        "trackChoices": ["demo-song"],
-        "tasks": [{ "type": "playWithTrack", "count": 2 }],
+        "trackChoices": [
+          "demo-song"
+        ],
+        "tasks": [
+          {
+            "type": "playWithTrack",
+            "count": 2
+          }
+        ],
         "dice": false
       },
       {
-        "trackChoices": ["a-major-scale"],
-        "tasks": [{ "type": "playWithoutTrack", "count": 1 }],
+        "trackChoices": [
+          "a-major-scale"
+        ],
+        "tasks": [
+          {
+            "type": "playWithoutTrack",
+            "count": 1
+          }
+        ],
         "dice": true,
         "dieChoices": [
-          { "kind": "rhythm", "rhythmId": "pepperoni" },
-          { "kind": "rhythm", "rhythmId": "ice-cream" },
-          { "kind": "rhythm", "rhythmId": "pineapple" },
-          { "kind": "rhythm", "rhythmId": "pony" },
-          { "kind": "rhythm", "rhythmId": "double-pepperoni" },
-          { "kind": "rhythm", "rhythmId": "may-song" }
+          {
+            "kind": "rhythm",
+            "rhythmId": "pepperoni"
+          },
+          {
+            "kind": "rhythm",
+            "rhythmId": "ice-cream"
+          },
+          {
+            "kind": "rhythm",
+            "rhythmId": "pineapple"
+          },
+          {
+            "kind": "rhythm",
+            "rhythmId": "pony"
+          },
+          {
+            "kind": "rhythm",
+            "rhythmId": "double-pepperoni"
+          },
+          {
+            "kind": "rhythm",
+            "rhythmId": "may-song"
+          }
         ]
       }
     ],
-    "checklist": ["mouse-holes", "baby-bear", "first-finger", "hugger-fingers", "puppy-space"]
+    "checklist": [
+      "mouse-holes",
+      "baby-bear",
+      "first-finger",
+      "hugger-fingers",
+      "puppy-space"
+    ]
   }
-]
+}
