@@ -56,6 +56,30 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("PracticeTasksList ⚠️ re-encode marker", () => {
+  const PLAIN_ITEM: PracticeItem = { trackChoices: ["a"], tasks: [], dice: false };
+
+  it("shows ⚠️ beside an item whose track is still being re-encoded", () => {
+    render(
+      <PracticeTasksList
+        items={[PLAIN_ITEM]}
+        tracks={TRACKS}
+        taskTypes={[]}
+        doneTasks={[]}
+        notesByTrack={{}}
+        activeStudent={LINKED}
+        reencodingIds={["a"]}
+      />,
+    );
+    expect(screen.getByRole("img", { name: "Video not yet re-encoded" })).toBeTruthy();
+  });
+
+  it("shows no ⚠️ when nothing is marked", () => {
+    renderList([PLAIN_ITEM]);
+    expect(screen.queryByRole("img", { name: "Video not yet re-encoded" })).toBeNull();
+  });
+});
+
 describe("PracticeTasksList die wiring", () => {
   it("rolling a track choice re-renders the item under the rolled track's id", () => {
     // floor(0.2 * 6) + 1 = face 2 → second choice → track b.

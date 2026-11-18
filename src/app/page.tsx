@@ -3,6 +3,7 @@ import checklistItems from "@data/checklist-items.json";
 import GetReadyChecklist from "./GetReadyChecklist";
 import PrintPlanLink from "./plans/PrintPlanLink";
 import PracticeTasksList from "./PracticeTasksList";
+import { getReencodeMarks } from "./reencode-marks";
 import { primaryTrackId, resolvePracticePlanForDate } from "./plans";
 import {
   getActiveStudent,
@@ -37,7 +38,7 @@ export default async function Home() {
         🎻 Practicing as {activeStudent.emoji} {activeStudent.name}
       </p>
     ) : null;
-  const [result, tracks, doneTasks, notesByTrack, checklistBlobs] = await Promise.all([
+  const [result, tracks, doneTasks, notesByTrack, checklistBlobs, reencodeMarks] = await Promise.all([
     resolvePracticePlanForDate(today, activeStudent),
     getTracks(),
     getDoneTasks(today, activeStudent),
@@ -45,6 +46,7 @@ export default async function Home() {
       ? getNotesForDate(today)
       : Promise.resolve<Record<string, string>>({}),
     getChecklistImageBlobs(),
+    getReencodeMarks(),
   ]);
 
   if (!result.ok) {
@@ -143,6 +145,7 @@ export default async function Home() {
           notesByTrack={notesByTrack}
           activeStudent={activeStudent}
           rotation={rotation}
+          reencodingIds={Object.keys(reencodeMarks)}
         />
       </div>
     </div>

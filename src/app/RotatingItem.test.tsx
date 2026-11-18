@@ -41,7 +41,7 @@ const ITEM: PracticeItem = {
 };
 const PRIMARY: Student = { id: "k", name: "K", emoji: "🎻", kind: "primary" };
 
-function renderItem(doneTasks: string[] = []) {
+function renderItem(doneTasks: string[] = [], reencodingIds?: string[]) {
   render(
     <RotatingItem
       item={ITEM}
@@ -54,11 +54,22 @@ function renderItem(doneTasks: string[] = []) {
         suggested: ["p3", "p4"],
         lastDoneLabel: { p1: "✓ yesterday", p2: "✓ yesterday", p3: "not yet", p4: "not yet" },
       }}
+      reencodingIds={reencodingIds}
     />,
   );
 }
 
 afterEach(cleanup);
+
+describe("RotatingItem ⚠️ re-encode marker", () => {
+  it("shows ⚠️ only on the marked pool track", () => {
+    renderItem([], ["p2"]);
+    const marks = screen.getAllByRole("img", { name: "Video not yet re-encoded" });
+    expect(marks).toHaveLength(1);
+    const row = screen.getByRole("button", { name: /Piece 2/ });
+    expect(within(row).getByRole("img", { name: "Video not yet re-encoded" })).toBeTruthy();
+  });
+});
 
 describe("RotatingItem", () => {
   it("lists suggested tracks first, starred and open; others collapsed", () => {
