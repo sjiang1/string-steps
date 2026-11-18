@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, readFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { needsReencode } from "../../scripts/video-recipe.mjs";
-import { ffmpegBinary, inspectLocalVideo, encodeVideo, downloadToFile } from "./video-tools";
+import { ffmpegBinary, inspectLocalVideo, encodeVideo, downloadToFile, blobExists } from "./video-tools";
 
 const execFileP = promisify(execFile);
 
@@ -50,5 +50,15 @@ describe("video tools (real ffmpeg-static)", () => {
     await expect(downloadToFile("https://example.test/b.mp4", path)).rejects.toThrow(
       "download failed: 404",
     );
+  });
+
+  it("blobExists asks with HEAD and reports a 404 as absent", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 404 }));
+    expect(await blobExists("https://example.test/a.mp4")).toBe(true);
+    expect(await blobExists("https://example.test/gone.mp4")).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith("https://example.test/a.mp4", { method: "HEAD" });
   });
 });

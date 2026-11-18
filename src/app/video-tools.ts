@@ -14,6 +14,13 @@ export function ffmpegBinary(): string {
   return ffmpegStatic;
 }
 
+// Whether a Blob URL still answers. The upload route uses it to recognise a
+// repeated registration whose original file a finished job has already deleted.
+export async function blobExists(url: string): Promise<boolean> {
+  const res = await fetch(url, { method: "HEAD" });
+  return res.ok;
+}
+
 export async function downloadToFile(url: string, path: string): Promise<void> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`download failed: ${res.status}`);

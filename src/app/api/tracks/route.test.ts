@@ -3,18 +3,24 @@ import { NextRequest } from "next/server";
 
 // Hoisted: the next/server mock is applied at the static import above, before
 // ordinary top-level consts exist.
-const { addTrackMock, markMock, jobMock, afterMock } = vi.hoisted(() => ({
-  addTrackMock: vi.fn(async () => undefined),
-  markMock: vi.fn(async () => undefined),
-  jobMock: vi.fn(async () => undefined),
-  afterMock: vi.fn((cb: () => unknown) => {
-    void cb();
+const { addTrackMock, blobUrlMock, blobExistsMock, markMock, jobMock, afterMock } = vi.hoisted(
+  () => ({
+    addTrackMock: vi.fn(async () => undefined),
+    blobUrlMock: vi.fn(async (): Promise<string | null> => null),
+    blobExistsMock: vi.fn(async () => true),
+    markMock: vi.fn(async () => undefined),
+    jobMock: vi.fn(async () => undefined),
+    afterMock: vi.fn((cb: () => unknown) => {
+      void cb();
+    }),
   }),
-}));
+);
 
 vi.mock("../../actions", () => ({
   addTrack: addTrackMock,
+  getTrackBlobUrl: blobUrlMock,
 }));
+vi.mock("../../video-tools", () => ({ blobExists: blobExistsMock }));
 vi.mock("../../reencode-marks", () => ({ markReencoding: markMock }));
 vi.mock("../../reencode-job", () => ({ runReencodeJob: jobMock }));
 vi.mock("next/server", async (orig) => ({
@@ -36,10 +42,47 @@ describe("POST /api/tracks", () => {
   beforeEach(() => {
     vi.stubEnv("UPLOAD_TOKEN", "secret-token");
     addTrackMock.mockClear();
+    blobUrlMock.mockReset().mockResolvedValue(null);
+    blobExistsMock.mockReset().mockResolvedValue(true);
     markMock.mockClear();
     jobMock.mockClear();
     afterMock.mockClear();
     vi.resetModules();
+  });
+
+  it("a retry after the job finished keeps the encoded mapping and schedules nothing", async () => {
+    blobUrlMock.mockResolvedValue("https://blob.example/videos/may-song-bread.mp4");
+    blobExistsMock.mockResolvedValue(false);
+    const { POST } = await import("./route");
+    const response = await POST(
+      await makeRequest(
+        {
+          id: "may-song-bread",
+          name: "May Song - Bread",
+          blobUrl: "https://blob.example/tracks/may-song-bread.mp4",
+        },
+        "Bearer secret-token",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(blobExistsMock).toHaveBeenCalledWith("https://blob.example/tracks/may-song-bread.mp4");
+    expect(addTrackMock).not.toHaveBeenCalled();
+    expect(markMock).not.toHaveBeenCalled();
+    expect(jobMock).not.toHaveBeenCalled();
+  });
+
+  it("a missing blob for a track with no mapping still registers and lets the job report it", async () => {
+    blobExistsMock.mockResolvedValue(false);
+    const { POST } = await import("./route");
+    const response = await POST(
+      await makeRequest(
+        { id: "new-one", name: "New", blobUrl: "https://blob.example/tracks/new-one.mp4" },
+        "Bearer secret-token",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(addTrackMock).toHaveBeenCalled();
+    expect(jobMock).toHaveBeenCalled();
   });
   afterEach(() => {
     vi.unstubAllEnvs();

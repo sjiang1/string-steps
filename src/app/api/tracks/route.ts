@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { verifyUploadToken } from "../../upload-token";
-import { addTrack } from "../../actions";
+import { addTrack, getTrackBlobUrl } from "../../actions";
+import { blobExists } from "../../video-tools";
 import { markReencoding } from "../../reencode-marks";
 import { runReencodeJob } from "../../reencode-job";
 import type { Track } from "../../plans";
@@ -29,6 +30,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { error: "id, name, blobUrl are required" },
       { status: 400 },
     );
+  }
+
+  // A repeated registration after the re-encode finished: the track already
+  // points at the encoded file and the submitted original is gone (the job
+  // deleted it). Overwriting the mapping would break playback, so this is a
+  // no-op reply. A genuinely new upload of the same id still exists at its
+  // URL and goes through as usual.
+  const current = await getTrackBlobUrl(id);
+  if (current !== null && !(await blobExists(blobUrl))) {
+    return NextResponse.json({ ok: true, id });
   }
 
   const track: Track = {

@@ -15,15 +15,24 @@ const vercel = vi.hoisted(() => ({
   del: vi.fn(async () => undefined),
 }));
 const calls = vi.hoisted(() => [] as string[]);
+// Lets one test make temp-dir creation fail; otherwise the real mkdtemp runs.
+const fsCtl = vi.hoisted(() => ({ mkdtempError: null as Error | null }));
 
 vi.mock("./video-tools", () => tools);
 vi.mock("./reencode-marks", () => marks);
 vi.mock("./track-blobs", () => blobs);
 vi.mock("@vercel/blob", () => vercel);
-vi.mock("fs/promises", async (orig) => ({
-  ...(await orig<typeof import("fs/promises")>()),
-  readFile: async () => Buffer.from("encoded"),
-}));
+vi.mock("fs/promises", async (orig) => {
+  const real = await orig<typeof import("fs/promises")>();
+  return {
+    ...real,
+    readFile: async () => Buffer.from("encoded"),
+    mkdtemp: async (prefix: string) => {
+      if (fsCtl.mkdtempError) throw fsCtl.mkdtempError;
+      return real.mkdtemp(prefix);
+    },
+  };
+});
 
 import { runReencodeJob } from "./reencode-job";
 
@@ -32,6 +41,7 @@ const OLD_URL = "https://s.public.blob.vercel-storage.com/tracks/x.mp4";
 beforeEach(() => {
   vi.clearAllMocks();
   calls.length = 0;
+  fsCtl.mkdtempError = null;
   tools.inspectLocalVideo.mockResolvedValue({ faststart: true, bitrate: 1_200_000 });
   blobs.setTrackBlobUrl.mockImplementation(async () => {
     calls.push("setTrackBlobUrl");
@@ -103,6 +113,13 @@ describe("runReencodeJob", () => {
     expect(marks.clearReencodeMark).toHaveBeenCalledWith("x");
     expect(marks.recordReencodeError).not.toHaveBeenCalled();
     expect(console.error).toHaveBeenCalled();
+  });
+
+  it("records the error when the temp directory cannot be created", async () => {
+    fsCtl.mkdtempError = new Error("ENOSPC: no space left");
+    await expect(runReencodeJob("x", OLD_URL)).resolves.toBeUndefined();
+    expect(marks.recordReencodeError).toHaveBeenCalledWith("x", expect.stringMatching(/ENOSPC/));
+    expect(tools.downloadToFile).not.toHaveBeenCalled();
   });
 
   it("does not reject when recording the error fails", async () => {

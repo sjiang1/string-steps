@@ -14,8 +14,10 @@ import { clearReencodeMark, recordReencodeError } from "./reencode-marks";
 import { setTrackBlobUrl } from "./track-blobs";
 
 export async function runReencodeJob(id: string, blobUrl: string): Promise<void> {
-  const dir = await mkdtemp(join(tmpdir(), "reencode-"));
+  // Created inside the try so a failure here is recorded on the mark too.
+  let dir: string | null = null;
   try {
+    dir = await mkdtemp(join(tmpdir(), "reencode-"));
     const inPath = join(dir, `${id}.in.mp4`);
     const outPath = join(dir, `${id}.out.mp4`);
 
@@ -53,6 +55,6 @@ export async function runReencodeJob(id: string, blobUrl: string): Promise<void>
       console.error(`re-encode ${id}: could not record the error on its mark`, markErr);
     }
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    if (dir !== null) await rm(dir, { recursive: true, force: true });
   }
 }
