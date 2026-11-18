@@ -3,6 +3,7 @@ import { getActiveStudent, getDoneTasks, getPlans, getPrimaryStudent, getSchedul
 import { todayLocal } from "../today";
 import { resolveActivePlanId } from "./active-plan";
 import PlanEditor from "./PlanEditor";
+import { getReencodeMarks } from "../reencode-marks";
 import NewPlanButton from "./NewPlanButton";
 import { defaultActiveFrom } from "./schedule-activation";
 
@@ -13,13 +14,14 @@ export default async function PlansPage({
 }) {
   const today = todayLocal();
   const primary = await getPrimaryStudent();
-  const [plans, schedule, tracks, params, doneToday, active] = await Promise.all([
+  const [plans, schedule, tracks, params, doneToday, active, reencodeMarks] = await Promise.all([
     getPlans(),
     getSchedule(),
     getTracks(),
     searchParams,
     getDoneTasks(today, primary),
     getActiveStudent(),
+    getReencodeMarks(),
   ]);
   const defaultActive = defaultActiveFrom(schedule, today, doneToday.length > 0);
   const requestedPlan = params.id ? plans.find((p) => p.id === params.id) ?? null : null;
@@ -55,7 +57,13 @@ export default async function PlansPage({
           )}
         </div>
       ) : activePlan ? (
-        <PlanEditor plan={activePlan} tracks={tracks} frozen={frozen} printable={active.kind === "primary"} />
+        <PlanEditor
+          plan={activePlan}
+          tracks={tracks}
+          frozen={frozen}
+          printable={active.kind === "primary"}
+          reencodingIds={Object.keys(reencodeMarks)}
+        />
       ) : (
         <p className="text-zinc-600">No plan yet. Tap &quot;+ New plan&quot; to create one.</p>
       )}

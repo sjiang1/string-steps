@@ -72,6 +72,22 @@ function addPractice(trackName: string, placement?: "Top" | "Bottom") {
   fireEvent.click(screen.getByRole("button", { name: trackName }));
 }
 
+describe("PlanEditor ⚠️ re-encode marker", () => {
+  it("shows ⚠️ beside a marked track in the picker", () => {
+    render(
+      <PlanEditor
+        plan={PLAN}
+        tracks={[{ id: "v", name: "Vid", type: "video", file: "/api/v/v" }]}
+        frozen={false}
+        printable
+        reencodingIds={["v"]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add practice" }));
+    expect(screen.getByRole("img", { name: "Video not yet re-encoded" })).toBeTruthy();
+  });
+});
+
 describe("PlanEditor add-practice placement", () => {
   it("adds a new practice at the bottom by default", () => {
     render(<PlanEditor plan={ONE_ITEM_PLAN} tracks={TRACKS} frozen={false} />);

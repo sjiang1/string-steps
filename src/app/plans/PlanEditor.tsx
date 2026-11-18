@@ -42,12 +42,15 @@ export default function PlanEditor({
   tracks,
   frozen,
   printable = false,
+  reencodingIds = [],
 }: {
   plan: Plan;
   tracks: Track[];
   frozen: boolean;
   /** Show the Print button (primary account only). */
   printable?: boolean;
+  /** Track IDs whose uploaded video has not been re-encoded yet (#31). */
+  reencodingIds?: string[];
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Plan>(plan);
@@ -231,6 +234,7 @@ export default function PlanEditor({
                 tracks={trackList}
                 disabled={disabled}
                 invalidTaskIndices={invalidByTrack.get(primaryTrackId(item)) ?? new Set()}
+                reencodingIds={reencodingIds}
                 onChange={(next) =>
                   update({
                     items: draft.items.map((it, i) => (i === idx ? next : it)),
@@ -270,6 +274,7 @@ export default function PlanEditor({
       {picker && (
         <TrackPicker
           tracks={trackList}
+          reencodingIds={reencodingIds}
           inPlan={
             picker.mode === "add"
               ? draft.items.map((i) => primaryTrackId(i))
