@@ -39,7 +39,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   };
   await addTrack(track, blobUrl);
   // Mark first so the ⚠️ shows the moment the track exists; the job clears it.
-  await markReencoding(id);
+  // The mark is only an aid: if its store is broken the upload still succeeds
+  // and the re-encode still runs.
+  try {
+    await markReencoding(id);
+  } catch (err) {
+    console.error(`could not mark ${id} for re-encoding; continuing without the ⚠️`, err);
+  }
   after(() => runReencodeJob(id, blobUrl));
   return NextResponse.json({ ok: true, id });
 }

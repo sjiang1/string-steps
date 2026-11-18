@@ -73,6 +73,25 @@ describe("re-encode marks store", () => {
     expect(await getReencodeMarks()).toEqual({ b: { since: "2026-11-14T10:00:00.000Z" } });
   });
 
+  it("in Redis, a junk field hides only that mark", async () => {
+    vi.doMock("@upstash/redis", async () => ({
+      Redis: (await import("./test-support/fake-redis")).FakeRedis,
+    }));
+    const { FakeRedis } = await import("./test-support/fake-redis");
+    FakeRedis.reset();
+    process.env.KV_REST_API_URL = "fake";
+    process.env.KV_REST_API_TOKEN = "fake";
+    await new FakeRedis().hset("track:reencode", {
+      good: JSON.stringify({ since: "2026-11-14T10:00:00.000Z" }),
+      junk: "not json",
+    });
+    const { getReencodeMarks } = await import("./reencode-marks");
+    expect(await getReencodeMarks()).toEqual({ good: { since: "2026-11-14T10:00:00.000Z" } });
+    vi.doUnmock("@upstash/redis");
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+  });
+
   it("returns no marks and logs when the store read throws", async () => {
     vi.doMock("./storage", async (orig) => ({
       ...(await orig<typeof import("./storage")>()),

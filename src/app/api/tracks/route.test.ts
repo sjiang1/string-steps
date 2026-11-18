@@ -124,6 +124,29 @@ describe("POST /api/tracks", () => {
     expect(order).toEqual(["mark", "job"]);
   });
 
+  it("still replies 200 and runs the job when marking fails", async () => {
+    markMock.mockRejectedValueOnce(new Error("WRONGTYPE"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { POST } = await import("./route");
+    const response = await POST(
+      await makeRequest(
+        {
+          id: "may-song-bread",
+          name: "May Song - Bread",
+          blobUrl: "https://blob.example/tracks/may-song-bread.mp4",
+        },
+        "Bearer secret-token",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(jobMock).toHaveBeenCalledWith(
+      "may-song-bread",
+      "https://blob.example/tracks/may-song-bread.mp4",
+    );
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
   it("exports maxDuration = 300", async () => {
     const mod = await import("./route");
     expect(mod.maxDuration).toBe(300);
