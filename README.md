@@ -185,6 +185,7 @@ Each collection is a Redis hash or set so that one write touches one record and 
 | `track:blob` | hash | track id → Blob URL | `track-blobs.json` |
 | `plan:all` | hash | plan id → plan JSON | `plans.json` (object keyed by id) |
 | `plan:next-id` | string | counter new plan ids come from | derived from `plans.json` |
+| `track:reencode` | hash | track id → `{ since, error? }` while a video's re-encode is pending | `track-reencode.json` |
 | `schedule:day` | hash | date → plan id or day-type id | `plan-schedule.json` |
 | `students:list`, `teacher:info`, `checklist:blobs` | JSON value | whole collection | same-named file |
 
@@ -222,7 +223,7 @@ First set an `UPLOAD_TOKEN` env var on your deployment — a long random string.
 
 The exact request/response shapes are the source of truth in [src/app/api/tracks/upload-url/route.ts](src/app/api/tracks/upload-url/route.ts) and [src/app/api/tracks/route.ts](src/app/api/tracks/route.ts).
 
-> **Encode at 540p, not 720p.** iOS's hardware encoder runs at a high bitrate regardless of size — 720p produced ~11 Mbps files that buffered; 540p roughly halves it at the same 16:9 framing. iOS `Encode Media` also can't write a faststart MP4, so this only mitigates the problem — run `scripts/reencode-videos.mjs` afterward to fully normalize (see [below](#keeping-videos-streamable-audit--re-encode)).
+> **Encode at 540p, not 720p.** iOS's hardware encoder runs at a high bitrate regardless of size — 720p produced ~11 Mbps files that buffered; 540p roughly halves it at the same 16:9 framing. iOS `Encode Media` also can't write a faststart MP4, so this only mitigates the problem — the server re-encodes every Shortcut upload automatically right after it is registered (see [below](#keeping-videos-streamable-audit--re-encode)).
 
 ### Using the Shortcut
 
@@ -246,7 +247,11 @@ Knobs: bump `-crf` (e.g. 30–32) for smaller files at lower quality, drop `-vf 
 
 ### Keeping videos streamable (audit + re-encode)
 
-iPhone uploads can land at a high bitrate or without `faststart`, which makes them buffer instead of streaming cleanly (iOS's encoder can't fix either). `scripts/reencode-videos.mjs` audits the videos already in your deployment and re-encodes any that aren't streaming-ready:
+iPhone uploads can land at a high bitrate or without `faststart`, which makes them buffer instead of streaming cleanly (iOS's encoder can't fix either). Three things keep every served video streaming-ready:
+
+1. **Uploads are re-encoded on Vercel automatically.** `POST /api/tracks` registers the track, replies to the phone, and then re-encodes the clip in the background with the bundled `ffmpeg-static` (same recipe as the script below). The result goes to a fresh Blob path, the track is repointed, and the original is deleted. Encoding runs at about real time, so clips up to roughly five minutes fit the function's 300 s limit.
+2. **A ⚠️ next to a video's name** on the Practice and Plans pages means it has not been re-encoded yet — either the job is still running or it failed. The mark lives in the `track:reencode` Redis hash (one field per track, with the error message when there is one); the Vercel function logs have the details. A clip that was already streaming-ready loses its ⚠️ within seconds.
+3. **The script is the manual fallback.** `scripts/reencode-videos.mjs` audits every video already in your deployment, re-encodes any that aren't streaming-ready, and clears a stuck ⚠️ for every video that conforms:
 
 ```bash
 # Audit only — lists every video and flags any that aren't streaming-ready

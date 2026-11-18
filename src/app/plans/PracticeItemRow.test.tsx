@@ -7,7 +7,7 @@ import PracticeItemRow from "./PracticeItemRow";
 const TRACKS: Track[] = [{ id: "a", name: "Track A", type: "reference", file: null }];
 const ITEM: PracticeItem = { trackChoices: ["a"], tasks: [], dice: false };
 
-function renderRow(item: PracticeItem) {
+function renderRow(item: PracticeItem, reencodingIds?: string[]) {
   const onChange = vi.fn();
   render(
     <PracticeItemRow
@@ -20,12 +20,26 @@ function renderRow(item: PracticeItem) {
       onReplaceTrack={() => {}}
       onRemoveTrack={() => {}}
       onRemove={() => {}}
+      reencodingIds={reencodingIds}
     />,
   );
   return onChange;
 }
 
 afterEach(cleanup);
+
+describe("PracticeItemRow ⚠️ re-encode marker", () => {
+  it("shows ⚠️ on a marked pool track", () => {
+    renderRow(ITEM, ["a"]);
+    expect(screen.getByRole("img", { name: "Video not yet re-encoded" })).toBeTruthy();
+  });
+
+  it("ignores marked IDs that are not in the list", () => {
+    renderRow(ITEM, ["ghost"]);
+    expect(screen.queryByRole("img", { name: "Video not yet re-encoded" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 3 }).textContent).toBe("Track A");
+  });
+});
 
 describe("PracticeItemRow item name", () => {
   it("headers an unnamed item with its primary track's name", () => {

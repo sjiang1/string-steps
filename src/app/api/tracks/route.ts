@@ -1,7 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { verifyUploadToken } from "../../upload-token";
-import { addTrack } from "../../actions";
+import { addTrack, getTrackBlobUrl } from "../../actions";
+import { blobExists } from "../../video-tools";
+import { markReencoding } from "../../reencode-marks";
+import { runReencodeJob } from "../../reencode-job";
 import type { Track } from "../../plans";
+
+// The re-encode runs in after(), past the reply to the phone; encoding takes
+// about real time, so this covers clips up to roughly five minutes (#31).
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!verifyUploadToken(request.headers.get("authorization"))) {
@@ -25,6 +32,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // A repeated registration after the re-encode finished: the track already
+  // points at the encoded file and the submitted original is gone (the job
+  // deleted it). Overwriting the mapping would break playback, so this is a
+  // no-op reply. A genuinely new upload of the same id still exists at its
+  // URL and goes through as usual.
+  const current = await getTrackBlobUrl(id);
+  if (current !== null && !(await blobExists(blobUrl))) {
+    return NextResponse.json({ ok: true, id });
+  }
+
   const track: Track = {
     id,
     name,
@@ -32,5 +49,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     file: `/api/v/${id}`,
   };
   await addTrack(track, blobUrl);
+  // Mark first so the ⚠️ shows the moment the track exists; the job clears it.
+  // The mark is only an aid: if its store is broken the upload still succeeds
+  // and the re-encode still runs.
+  try {
+    await markReencoding(id);
+  } catch (err) {
+    console.error(`could not mark ${id} for re-encoding; continuing without the ⚠️`, err);
+  }
+  after(() => runReencodeJob(id, blobUrl));
   return NextResponse.json({ ok: true, id });
 }

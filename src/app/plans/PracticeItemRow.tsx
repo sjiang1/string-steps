@@ -8,6 +8,7 @@ import { rhythmById, rhythms } from "../rhythms";
 import TaskChip from "./TaskChip";
 import TeacherNoteField from "./TeacherNoteField";
 import { sortTasks } from "./task-order";
+import ReencodeMarker from "../ReencodeMarker";
 
 const TASK_LABEL: Record<string, string> = {
   sing: "Sing",
@@ -34,6 +35,7 @@ export default function PracticeItemRow({
   onReplaceTrack,
   onRemoveTrack,
   onRemove,
+  reencodingIds = [],
 }: {
   item: PracticeItem;
   tracks: Track[];
@@ -44,6 +46,8 @@ export default function PracticeItemRow({
   onReplaceTrack: (trackId: string) => void;
   onRemoveTrack: (trackId: string) => void;
   onRemove: () => void;
+  /** Track IDs whose uploaded video has not been re-encoded yet (#31). */
+  reencodingIds?: string[];
 }) {
   const track = tracks.find((t) => t.id === primaryTrackId(item));
   // Draft of the item's own name; committed to the plan on blur.
@@ -154,6 +158,12 @@ export default function PracticeItemRow({
               className="disabled:text-zinc-400"
             >
               {trackName(id)}
+              {reencodingIds.includes(id) && (
+                <>
+                  {" "}
+                  <ReencodeMarker />
+                </>
+              )}
             </button>
             {item.trackChoices.length > 1 && (
               <button

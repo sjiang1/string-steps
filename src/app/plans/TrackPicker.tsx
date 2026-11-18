@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Track } from "../plans";
+import ReencodeMarker from "../ReencodeMarker";
 
 export type Placement = "top" | "bottom";
 
@@ -19,6 +20,7 @@ export default function TrackPicker({
   onPick,
   onCreate,
   onClose,
+  reencodingIds = [],
 }: {
   tracks: Track[];
   inPlan: string[];
@@ -32,6 +34,8 @@ export default function TrackPicker({
   // field: if the typed name matches no existing track, a create row appears.
   onCreate?: (name: string) => void;
   onClose: () => void;
+  /** Track IDs whose uploaded video has not been re-encoded yet (#31). */
+  reencodingIds?: string[];
 }) {
   const [query, setQuery] = useState("");
   const inPlanSet = new Set(inPlan);
@@ -118,6 +122,12 @@ export default function TrackPicker({
                   className="w-full text-left px-3 py-2 rounded-md hover:bg-zinc-50 disabled:bg-zinc-100 disabled:text-zinc-400"
                 >
                   {t.name}
+                  {reencodingIds.includes(t.id) && (
+                    <>
+                      {" "}
+                      <ReencodeMarker />
+                    </>
+                  )}
                   {already && <span className="ml-2 text-xs">(already in plan)</span>}
                 </button>
               </li>

@@ -1,10 +1,31 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const addTrackMock = vi.fn(async () => undefined);
+// Hoisted: the next/server mock is applied at the static import above, before
+// ordinary top-level consts exist.
+const { addTrackMock, blobUrlMock, blobExistsMock, markMock, jobMock, afterMock } = vi.hoisted(
+  () => ({
+    addTrackMock: vi.fn(async () => undefined),
+    blobUrlMock: vi.fn(async (): Promise<string | null> => null),
+    blobExistsMock: vi.fn(async () => true),
+    markMock: vi.fn(async () => undefined),
+    jobMock: vi.fn(async () => undefined),
+    afterMock: vi.fn((cb: () => unknown) => {
+      void cb();
+    }),
+  }),
+);
 
 vi.mock("../../actions", () => ({
   addTrack: addTrackMock,
+  getTrackBlobUrl: blobUrlMock,
+}));
+vi.mock("../../video-tools", () => ({ blobExists: blobExistsMock }));
+vi.mock("../../reencode-marks", () => ({ markReencoding: markMock }));
+vi.mock("../../reencode-job", () => ({ runReencodeJob: jobMock }));
+vi.mock("next/server", async (orig) => ({
+  ...(await orig<typeof import("next/server")>()),
+  after: afterMock,
 }));
 
 async function makeRequest(body: unknown, auth?: string): Promise<NextRequest> {
@@ -21,7 +42,47 @@ describe("POST /api/tracks", () => {
   beforeEach(() => {
     vi.stubEnv("UPLOAD_TOKEN", "secret-token");
     addTrackMock.mockClear();
+    blobUrlMock.mockReset().mockResolvedValue(null);
+    blobExistsMock.mockReset().mockResolvedValue(true);
+    markMock.mockClear();
+    jobMock.mockClear();
+    afterMock.mockClear();
     vi.resetModules();
+  });
+
+  it("a retry after the job finished keeps the encoded mapping and schedules nothing", async () => {
+    blobUrlMock.mockResolvedValue("https://blob.example/videos/may-song-bread.mp4");
+    blobExistsMock.mockResolvedValue(false);
+    const { POST } = await import("./route");
+    const response = await POST(
+      await makeRequest(
+        {
+          id: "may-song-bread",
+          name: "May Song - Bread",
+          blobUrl: "https://blob.example/tracks/may-song-bread.mp4",
+        },
+        "Bearer secret-token",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(blobExistsMock).toHaveBeenCalledWith("https://blob.example/tracks/may-song-bread.mp4");
+    expect(addTrackMock).not.toHaveBeenCalled();
+    expect(markMock).not.toHaveBeenCalled();
+    expect(jobMock).not.toHaveBeenCalled();
+  });
+
+  it("a missing blob for a track with no mapping still registers and lets the job report it", async () => {
+    blobExistsMock.mockResolvedValue(false);
+    const { POST } = await import("./route");
+    const response = await POST(
+      await makeRequest(
+        { id: "new-one", name: "New", blobUrl: "https://blob.example/tracks/new-one.mp4" },
+        "Bearer secret-token",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(addTrackMock).toHaveBeenCalled();
+    expect(jobMock).toHaveBeenCalled();
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -38,6 +99,8 @@ describe("POST /api/tracks", () => {
     );
     expect(response.status).toBe(401);
     expect(addTrackMock).not.toHaveBeenCalled();
+    expect(markMock).not.toHaveBeenCalled();
+    expect(jobMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when required fields are missing", async () => {
@@ -47,6 +110,8 @@ describe("POST /api/tracks", () => {
     );
     expect(response.status).toBe(400);
     expect(addTrackMock).not.toHaveBeenCalled();
+    expect(markMock).not.toHaveBeenCalled();
+    expect(jobMock).not.toHaveBeenCalled();
   });
 
   it("calls addTrack with the canonical Track shape on success", async () => {
@@ -71,5 +136,62 @@ describe("POST /api/tracks", () => {
       },
       "https://blob.example/tracks/may-song-bread.mp4",
     );
+  });
+
+  it("marks the track before replying and runs the re-encode job after", async () => {
+    const order: string[] = [];
+    markMock.mockImplementation(async () => {
+      order.push("mark");
+    });
+    jobMock.mockImplementation(async () => {
+      order.push("job");
+    });
+    const { POST } = await import("./route");
+    const response = await POST(
+      await makeRequest(
+        {
+          id: "may-song-bread",
+          name: "May Song - Bread",
+          blobUrl: "https://blob.example/tracks/may-song-bread.mp4",
+        },
+        "Bearer secret-token",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(markMock).toHaveBeenCalledWith("may-song-bread");
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    expect(jobMock).toHaveBeenCalledWith(
+      "may-song-bread",
+      "https://blob.example/tracks/may-song-bread.mp4",
+    );
+    expect(order).toEqual(["mark", "job"]);
+  });
+
+  it("still replies 200 and runs the job when marking fails", async () => {
+    markMock.mockRejectedValueOnce(new Error("WRONGTYPE"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { POST } = await import("./route");
+    const response = await POST(
+      await makeRequest(
+        {
+          id: "may-song-bread",
+          name: "May Song - Bread",
+          blobUrl: "https://blob.example/tracks/may-song-bread.mp4",
+        },
+        "Bearer secret-token",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(jobMock).toHaveBeenCalledWith(
+      "may-song-bread",
+      "https://blob.example/tracks/may-song-bread.mp4",
+    );
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("exports maxDuration = 300", async () => {
+    const mod = await import("./route");
+    expect(mod.maxDuration).toBe(300);
   });
 });

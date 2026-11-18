@@ -19,8 +19,8 @@
 - ffmpeg settings are exactly those of `ffmpegArgs()` today: libx264, CRF 28, preset medium, `scale=-2:min(720\,ih)`, AAC 128k, `+faststart`. One definition, shared by script and route.
 - A video conforms when it is faststart and its bitrate is at most `BITRATE_CEILING` = 2 500 000 bit/s. Unknown bitrate with faststart conforms.
 - Re-encoded output goes to `videos/<id>.mp4` (or `videos/<id>-reencoded.mp4` if the source already lives there), uploaded with `access: "public"`, `contentType: "video/mp4"`, `addRandomSuffix: false`, `allowOverwrite: true`.
-- The mark lives in Redis key `tracks:reencode`, a **hash** whose fields are track IDs and whose values are `{ since: <ISO time>, error?: <message> }`. Every write touches one field with `HSET`/`HDEL`, never the whole map, so the route, the job and the script cannot erase each other's marks. In dev it is the file `data/track-reencode.json` holding the same map, overridable with `TRACK_REENCODE_JSON_PATH`.
-- `tracks:blobs` is re-read immediately before it is written. Never write a copy read before the encode.
+- The mark lives in Redis key `track:reencode` (the #44 naming), a **hash** whose fields are track IDs and whose values are `{ since: <ISO time>, error?: <message> }`, written through the #44 helpers in `src/app/storage.ts` (`hashGetAll/hashSet/hashDelete(redisKey, file: FileRef, codec, …)` with `jsonCodec<ReencodeMark>()`). Every write touches one field, so the route, the job and the script cannot erase each other's marks. In dev it is the file `data/track-reencode.json` holding the same map, overridable with `TRACK_REENCODE_JSON_PATH`.
+- Blob URLs go through `setTrackBlobUrl(id, url)` in `src/app/track-blobs.ts`, which is one `HSET` on `track:blob` since #44. Nothing reads the whole map in order to write it.
 - The ⚠️ is a bare `⚠️` character in a `<span>`. No visible words, no `title`, no click handler. An `aria-label` is allowed since it is not visible.
 - Props crossing the server/client boundary must be serialisable: marked IDs travel as `string[]`, never `Set`.
 - No job code in `src/app/actions.ts`. Every export of that `"use server"` file is a callable endpoint.
@@ -29,11 +29,11 @@
 
 ## Review Focus
 
-1. **The `tracks:reencode` store is broken by hand** (dev file holds a string; Redis key set to a non-hash type). The ⚠️ is an aid, so the Practice and Plans pages must still render. → Task 3 tests "treats a non-object dev value as no marks" and "returns no marks and logs when the store read throws".
-2. **The download or the Blob upload fails** (404, network). The original must stay in place, `tracks:blobs` untouched, the error saved on the mark, nothing thrown out of the job. → Task 5 tests "records the error when the download fails" and "leaves tracks:blobs alone when the upload fails".
+1. **The `track:reencode` store is broken by hand** (dev file holds a string; Redis key set to a non-hash type). The ⚠️ is an aid, so the Practice and Plans pages must still render. → Task 3 tests "treats a non-object dev value as no marks" and "returns no marks and logs when the store read throws".
+2. **The download or the Blob upload fails** (404, network). The original must stay in place, `track:blob` untouched, the error saved on the mark, nothing thrown out of the job. → Task 5 tests "records the error when the download fails" and "leaves track:blob alone when the upload fails".
 3. **Deleting the original fails after the swap succeeded.** The new file is live, so the mark must still clear. → Task 5 test "clears the mark even when deleting the original fails".
 4. **A mark exists for an ID no component can resolve** (track removed from Redis by hand). Components must render without complaint. → Task 8 test "ignores marked IDs that are not in the list".
-5. **The script and the job write `tracks:blobs` at the same moment.** Marks are safe (per-field hash commands), but the blob map is still one JSON value, so two writers can interleave. Re-reading right before writing narrows that window to milliseconds; it does not close it. Closing it is the data-layer issue filed from this work, not this plan. → Task 1 test "keeps entries written by someone else" pins the re-read.
+5. ~~The script and the job write the blob map at the same moment.~~ Closed by #44: `track:blob` is a hash and both writers use one `HSET` per ID.
 
 ---
 
@@ -132,42 +132,24 @@ describe("atomsAreFaststart", () => {
 
 ### Task 3: Re-encode marks store (Redis hash)
 
+> Re-pointed 2026-11-18: the hash helpers and `storage.test.ts` already exist (#44). This task only adds the marks module on top of them.
+
 **Files:**
-- Modify: `src/app/storage.ts` (add hash helpers)
-- Create: `src/app/storage.test.ts`
 - Create: `src/app/reencode-marks.ts`
 - Create: `src/app/reencode-marks.test.ts`
 - Create: `data/track-reencode.json` containing `{}`
 
 **Interfaces:**
-- Produces, `src/app/storage.ts` (new, alongside `readJson`/`writeJson`):
-  - `hashGetAll<T>(redisKey: string, filePath: string): Promise<Record<string, T>>` — Redis `HGETALL` (Upstash returns `{}` for a missing key and parses JSON values); dev reads the file and returns `{}` if its content is not a plain object.
-  - `hashSet<T>(redisKey: string, filePath: string, field: string, value: T): Promise<void>` — Redis `HSET key { [field]: value }`; dev read-modify-write of the file (single writer in dev).
-  - `hashDelete(redisKey: string, filePath: string, field: string): Promise<void>` — Redis `HDEL`; dev removes the key from the file. No-op if absent.
+- Consumes, `src/app/storage.ts` (#44): `hashGetAll<T>(redisKey, file: FileRef, codec)`, `hashSet<T>(redisKey, file, codec, field, value)`, `hashDelete(redisKey, file, field)`, `jsonCodec<T>()`, `dataPath(envVar, fileName)`, `type FileRef`.
 - Produces, `src/app/reencode-marks.ts`:
   - `type ReencodeMark = { since: string; error?: string }`
-  - `getReencodeMarks(): Promise<Record<string, ReencodeMark>>` — `hashGetAll`; if the read throws (e.g. Redis `WRONGTYPE` after a hand edit) it `console.error`s and returns `{}`, because a broken ⚠️ store must never take the Practice page down.
+  - `getReencodeMarks(): Promise<Record<string, ReencodeMark>>` — `hashGetAll`; keeps only entries whose value is a plain object with a string `since` (a hand-edited dev file holding `"oops"`, or a field holding junk, yields no mark); if the read throws (e.g. Redis `WRONGTYPE` after a hand edit) it `console.error`s and returns `{}`, because a broken ⚠️ store must never take the Practice page down.
   - `markReencoding(id: string, now: Date = new Date()): Promise<void>` — `hashSet(id, { since: now.toISOString() })`, replacing any previous mark.
   - `recordReencodeError(id: string, message: string): Promise<void>` — reads the one field via `getReencodeMarks()[id]`, keeps its `since` (or sets one now), sets `error`, `hashSet`. Only that video's own job ever writes its field, so this read-then-write has no second writer.
   - `clearReencodeMark(id: string): Promise<void>` — `hashDelete`.
-  - Key `"tracks:reencode"`, path `dataPath("TRACK_REENCODE_JSON_PATH", "track-reencode.json")`.
+  - Key `"track:reencode"`, file `{ path: dataPath("TRACK_REENCODE_JSON_PATH", "track-reencode.json") }`, codec `jsonCodec<ReencodeMark>()`.
 
-- [ ] **Step 1: Write the failing storage tests** in `src/app/storage.test.ts`, dev-file mode only (no `KV_REST_API_URL`), temp file via a throwaway env var, `vi.resetModules()` per test:
-
-```ts
-it("hashSet adds one field and keeps the others", ...)          // file {a:1}; hashSet("b",2) → {a:1,b:2}
-it("hashDelete removes only that field", ...)                   // file {a:1,b:2}; hashDelete("a") → {b:2}
-it("hashDelete of an absent field is a no-op", ...)
-it("hashGetAll returns {} for a non-object dev value", ...)      // file "oops" → {}
-```
-
-- [ ] **Step 2: Run** `npx vitest run src/app/storage.test.ts` → FAIL, exports missing.
-
-- [ ] **Step 3: Implement** the three helpers in `storage.ts`. Redis branch: `redis.hgetall<Record<string, T>>(key) ?? {}`, `redis.hset(key, { [field]: value })`, `redis.hdel(key, field)`.
-
-- [ ] **Step 4: Run** the storage tests → PASS.
-
-- [ ] **Step 5: Write the failing marks tests** in `src/app/reencode-marks.test.ts`, same temp-file pattern with `TRACK_REENCODE_JSON_PATH`:
+- [ ] **Step 1: Write the failing marks tests** in `src/app/reencode-marks.test.ts`, temp file via `TRACK_REENCODE_JSON_PATH`, `vi.resetModules()` and `delete process.env.KV_REST_API_URL` per test:
 
 ```ts
 it("marks with the given time and clears", ...)                // mark → {id:{since:"2026-11-14T10:00:00.000Z"}}; clear → {}
@@ -175,6 +157,7 @@ it("records an error without losing since", ...)              // mark at T; reco
 it("records an error for an unmarked id", ...)                // since present, error "boom"
 it("clearing one id leaves the others untouched", ...)
 it("treats a non-object dev value as no marks", ...)          // file "oops" → {}
+it("ignores a field whose value is not a mark", ...)          // file {"a":"junk","b":{"since":"T"}} → {b:{since:"T"}}
 it("returns no marks and logs when the store read throws", async () => {
   vi.doMock("./storage", async (orig) => ({ ...(await orig<typeof import("./storage")>()), hashGetAll: async () => { throw new Error("WRONGTYPE"); } }));
   const err = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -184,13 +167,13 @@ it("returns no marks and logs when the store read throws", async () => {
 });
 ```
 
-- [ ] **Step 6: Run** `npx vitest run src/app/reencode-marks.test.ts` → FAIL.
+- [ ] **Step 2: Run** `npx vitest run src/app/reencode-marks.test.ts` → FAIL, module not found.
 
-- [ ] **Step 7: Implement** the module and add `data/track-reencode.json` with `{}`.
+- [ ] **Step 3: Implement** the module and add `data/track-reencode.json` with `{}`.
 
-- [ ] **Step 8: Run** `npm test && npm run typecheck && npm run lint` → pass.
+- [ ] **Step 4: Run** `npm test && npm run typecheck && npm run lint` → pass.
 
-- [ ] **Step 9: Commit** — `feat: add a tracks:reencode mark store as a Redis hash with per-field writes`.
+- [ ] **Step 5: Commit** — `feat: add a track:reencode mark store on the #44 hash helpers, one field per video`.
 
 ---
 
@@ -268,7 +251,7 @@ it("re-encodes, uploads to videos/<id>.mp4, repoints, clears, deletes", async ()
   // call order: setTrackBlobUrl("x", newUrl) → clearReencodeMark("x") → del(blobUrl)
 });
 it("records the error when the download fails", ...)                        // downloadToFile rejects; recordReencodeError("x", /download failed/); setTrackBlobUrl & put not called
-it("leaves tracks:blobs alone when the upload fails", ...)                  // put rejects; setTrackBlobUrl, clearReencodeMark, del not called; recordReencodeError called
+it("leaves track:blob alone when the upload fails", ...)                    // put rejects; setTrackBlobUrl, clearReencodeMark, del not called; recordReencodeError called
 it("clears the mark even when deleting the original fails", ...)            // del rejects; clearReencodeMark called; recordReencodeError not called; console.error called
 it("does not reject when recording the error fails", ...)                   // recordReencodeError rejects; await runReencodeJob resolves
 ```
@@ -394,12 +377,12 @@ it("shows ⚠️ beside a marked track in the picker", () => {
 - Modify: `scripts/reencode-videos.mjs` (header comment, mark handling)
 
 **Interfaces:**
-- Consumes: the `tracks:reencode` hash (Task 3's shape) directly through `@upstash/redis`, like the script already does for `tracks:list` and `tracks:blobs`.
-- `main()` calls `redis.hgetall("tracks:reencode")` once, only to know which audited videos carry a mark. Every clear is `redis.hdel("tracks:reencode", id)` for that one ID: after the audit for each conforming marked video, and after each successful swap. No snapshot of the map is ever written back, so a mark added by an upload during the run survives. In dry-run it prints `would clear mark: <id>` instead of deleting.
+- Consumes: the `track:reencode` hash (Task 3's shape) directly through the script's non-deserialising `@upstash/redis` client, like it already does for `track:all` and `track:blob`. `HGETALL` comes back as a flat array on that client: go through `hashReplyToRecord` from `./storage-migration.mjs` (the values are JSON strings; the script only needs the field names).
+- `main()` calls `hashReplyToRecord(await redis.hgetall("track:reencode"))` once, only to know which audited videos carry a mark. Every clear is `redis.hdel("track:reencode", id)` for that one ID: after the audit for each conforming marked video, and after each successful swap. No snapshot of the map is ever written back, so a mark added by an upload during the run survives. In dry-run it prints `would clear mark: <id>` instead of deleting.
 
 - [ ] **Step 1: Implement**, and rewrite the header comment: drop the "Stopgap … (#32)" line and "(see #26)"; say instead that `POST /api/tracks` re-encodes uploads automatically (#31) and this script is the manual fallback that also clears a stuck ⚠️.
 
-- [ ] **Step 2: Verify against a Vercel preview** (this is Redis glue in a CLI entry point; `main()` has no unit tests today and this adds none): with the preview's env, `HSET tracks:reencode <some-conforming-id> '{"since":"2026-11-14T00:00:00Z"}'` in the Upstash console, run the dry-run → prints `would clear mark: <id>`; run `--execute` → the field is gone and no other field changed. Then `npm test && npm run lint` → pass.
+- [ ] **Step 2: Verify against production Redis, read-only first** (this is Redis glue in a CLI entry point; `main()` has no unit tests today and this adds none). Previews have no Redis since #44 scoped the Upstash connection to Production, so: run the dry run with `.env.local` → every video still conforms and nothing is printed about marks. Then, with Siyuan's go-ahead, `HSET track:reencode <some-conforming-video-id> '{"since":"2026-11-18T00:00:00Z"}'` via a one-off node line, run the dry run → prints `would clear mark: <id>`; run `--execute` → the field is gone and no other field changed. Then `npm test && npm run lint` → pass.
 
 - [ ] **Step 3: Commit** — `feat: reencode-videos.mjs clears a track's ⚠️ mark once the video conforms`.
 
@@ -408,9 +391,9 @@ it("shows ⚠️ beside a marked track in the picker", () => {
 ### Task 10: README
 
 **Files:**
-- Modify: `README.md:197` (Encode note), `:219-231` (Keeping videos streamable)
+- Modify: `README.md` — the "Encode at 540p" note (~line 225) and the "Keeping videos streamable" section (~lines 247-258); also add `track:reencode` to the storage-layout table added by #44
 
-- [ ] **Step 1: Edit.** In the 540p note, replace "run `scripts/reencode-videos.mjs` afterward to fully normalize" with: the server re-encodes every Shortcut upload automatically. Rewrite "Keeping videos streamable" to say, in this order: uploads are re-encoded on Vercel right after registration (needs `ffmpeg-static`, bundled); a ⚠️ next to a video's name on the Practice and Plans pages means it has not been re-encoded yet, either because it is still running or because it failed, with the error in Upstash under `tracks:reencode` or in the Vercel logs; the script is the manual fallback and clears the ⚠️. Keep the two command lines.
+- [ ] **Step 1: Edit.** In the 540p note, replace "run `scripts/reencode-videos.mjs` afterward to fully normalize" with: the server re-encodes every Shortcut upload automatically. Rewrite "Keeping videos streamable" to say, in this order: uploads are re-encoded on Vercel right after registration (needs `ffmpeg-static`, bundled); a ⚠️ next to a video's name on the Practice and Plans pages means it has not been re-encoded yet, either because it is still running or because it failed, with the error in Upstash under `track:reencode` or in the Vercel logs; the script is the manual fallback and clears the ⚠️. Keep the two command lines.
 
 - [ ] **Step 2: Verify** `grep -n "reencode" README.md` shows the new wording and no leftover "afterward to fully normalize".
 
@@ -421,5 +404,5 @@ it("shows ⚠️ beside a marked track in the picker", () => {
 ### Task 11: Preview smoke test and PR
 
 - [ ] **Step 1: Push** the branch and open a PR with `Closes #31`, describing the mark lifecycle and the preview test below.
-- [ ] **Step 2: On the Vercel preview**, upload a short clip via the Shortcut pointed at the preview URL (or `curl` the two routes with the preview's `UPLOAD_TOKEN`). Expect: immediate `{ ok: true }`; ⚠️ visible on `/plans` right after; within ~2 minutes `tracks:blobs` in the preview's Redis points at `videos/<id>.mp4`, the mark is gone, the old `tracks/<id>.mp4` is deleted, and the ⚠️ disappears on reload.
+- [ ] **Step 2: End-to-end test.** Previews have no Redis since #44 (Upstash scoped to Production), so the preview cannot run the job. Two options, Siyuan's call: (a) create a free Preview-scoped Upstash database in Vercel and test on the preview as originally planned; (b) merge, then upload a short test clip to production via `curl` on the two routes with the production `UPLOAD_TOKEN` (the original stays in place until the swap succeeds, so a failure only leaves a ⚠️). Expect: immediate `{ ok: true }`; ⚠️ visible on `/plans` right after; within ~2 minutes `track:blob` points at `videos/<id>.mp4`, the mark is gone, the old `tracks/<id>.mp4` is deleted, and the ⚠️ disappears on reload. Remove the test track afterwards (HDEL on `track:all` / `track:blob`, delete the blob).
 - [ ] **Step 3: Record** the measured encode time and file sizes in the PR body, then hand the PR to Siyuan for review and merge.

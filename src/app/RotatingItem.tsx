@@ -7,6 +7,7 @@ import TrackNote from "./TrackNote";
 import { itemOwnName, trackPlaybackSpeed, type PracticeItem, type Track } from "./plans";
 import { tracksDoneToday, type RotationView } from "./rotation";
 import type { Student } from "./students";
+import ReencodeMarker from "./ReencodeMarker";
 
 interface Props {
   item: PracticeItem;
@@ -16,12 +17,14 @@ interface Props {
   notesByTrack: Record<string, string>;
   activeStudent: Student;
   view: RotationView;
+  // Track IDs whose uploaded video has not been re-encoded yet (#31).
+  reencodingIds?: string[];
 }
 
 // A rotating item shows every pool track: today's suggested ones first, starred
 // and open; the rest collapsed but fully practicable. Any perDay finished
 // tracks fill the item — the stars are only a suggestion.
-export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notesByTrack, activeStudent, view }: Props) {
+export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notesByTrack, activeStudent, view, reencodingIds = [] }: Props) {
   const [done, setDone] = useState(doneTasks);
   const [open, setOpen] = useState<Set<string>>(() => new Set(view.suggested));
   const perDay = item.perDay!;
@@ -67,6 +70,7 @@ export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notes
                 <span aria-hidden>{isOpen ? "▾" : "▸"}</span>
                 {isSuggested && <span>⭐</span>}
                 <span className="font-medium">{track?.name ?? id}</span>
+                {reencodingIds.includes(id) && <ReencodeMarker />}
                 {speed !== 1 && (
                   <span className="text-xs bg-emerald-100 text-emerald-800 rounded px-1.5 py-0.5">
                     🐢 {speed}×

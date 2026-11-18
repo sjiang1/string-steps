@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import PracticeDie, { storedDieFace } from "./PracticeDie";
 import RotatingItem from "./RotatingItem";
+import ReencodeMarker from "./ReencodeMarker";
 import TaskList, { TaskTypeDef } from "./TaskList";
 import TrackMedia from "./TrackMedia";
 import TrackNote from "./TrackNote";
@@ -19,9 +20,12 @@ interface Props {
   notesByTrack: Record<string, string>;
   activeStudent: Student;
   rotation?: Record<string, RotationView>; // keyed by primaryTrackId(item)
+  // Track IDs whose uploaded video has not been re-encoded yet (#31). A plain
+  // string[] so the prop survives the server/client boundary.
+  reencodingIds?: string[];
 }
 
-export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks, notesByTrack, activeStudent, rotation }: Props) {
+export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks, notesByTrack, activeStudent, rotation, reencodingIds = [] }: Props) {
   // All keyed by itemKey (= the item's first pool track).
   const [activeDieItemKey, setActiveDieItemKey] = useState<string | null>(null);
   const [rolledFaces, setRolledFaces] = useState<Record<string, number>>({});
@@ -61,6 +65,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
                 notesByTrack={notesByTrack}
                 activeStudent={activeStudent}
                 view={view}
+                reencodingIds={reencodingIds}
               />
             );
           }
@@ -82,6 +87,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
             <li key={itemKey} className="rounded-lg border bg-white p-4">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold">{title}</h3>
+                {reencodingIds.includes(trackId) && <ReencodeMarker />}
                 {track?.type === "video" && (
                   <span className="text-xs bg-zinc-100 text-zinc-500 rounded px-1.5 py-0.5">
                     video
