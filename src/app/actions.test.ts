@@ -165,7 +165,34 @@ describe("getMonthProgress", () => {
       type: "practice",
       done: 1,
       total: TEST_PLAN_TASK_TOTAL,
+      ticked: true,
     });
+  });
+
+  it("marks a day ticked when the primary logged anything, even an unfinished task", async () => {
+    setupScheduleData({ "2026-04-10": "1" });
+    setupPlansData(TEST_PLANS);
+    writeFileSync(tempFile, JSON.stringify({ "2026-04-10": ["demo-a-playWithTrack-0"] }));
+    const { getMonthProgress } = await loadActions();
+    const entry = (await getMonthProgress("2026-04"))["2026-04-10"];
+    expect(entry).toMatchObject({ type: "practice", done: 0, ticked: true });
+  });
+
+  it("marks a day not ticked when the primary's log is empty", async () => {
+    setupScheduleData({ "2026-04-10": "1" });
+    setupPlansData(TEST_PLANS);
+    const { getMonthProgress } = await loadActions();
+    expect((await getMonthProgress("2026-04"))["2026-04-10"]).toMatchObject({ ticked: false });
+  });
+
+  it("ticked follows the primary's log when a linked account is active", async () => {
+    setupStudentsData([PRIMARY, LINKED]);
+    cookieState.value = LINKED.id;
+    setupScheduleData({ "2026-04-10": "1" });
+    setupPlansData(TEST_PLANS);
+    writeFileSync(tempFile, JSON.stringify({ [`2026-04-10:${LINKED.id}`]: ["demo-a-playWithTrack-0"] }));
+    const { getMonthProgress } = await loadActions();
+    expect((await getMonthProgress("2026-04"))["2026-04-10"]).toMatchObject({ ticked: false });
   });
 
   it("counts a task done once all its repetitions are tapped", async () => {
@@ -181,7 +208,7 @@ describe("getMonthProgress", () => {
     writeFileSync(tempFile, JSON.stringify(data));
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 2, total: 2 });
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 2, total: 2, ticked: true });
   });
 
   it("doesn't count a task with more taps than its target, matching the task list's ✅", async () => {
@@ -195,7 +222,7 @@ describe("getMonthProgress", () => {
     writeFileSync(tempFile, JSON.stringify(data));
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 0, total: TEST_PLAN_TASK_TOTAL });
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 0, total: TEST_PLAN_TASK_TOTAL, ticked: true });
   });
 
   it("counts a track-pool task done when any one track in the pool finishes it", async () => {
@@ -234,7 +261,7 @@ describe("getMonthProgress", () => {
     writeFileSync(tempFile, JSON.stringify(data));
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 1, total: 2 });
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 1, total: 2, ticked: true });
   });
 
   it("counts a rotating item as perDay tracks' worth of tasks", async () => {
@@ -266,7 +293,7 @@ describe("getMonthProgress", () => {
     );
     const { getMonthProgress } = await loadActions();
     const progress = await getMonthProgress("2026-04");
-    expect(progress["2026-04-09"]).toEqual({ type: "practice", done: 4, total: 4 });
+    expect(progress["2026-04-09"]).toEqual({ type: "practice", done: 4, total: 4, ticked: true });
   });
 
   it("returns non-practice entry for group class days", async () => {
@@ -317,7 +344,7 @@ describe("getMonthProgress", () => {
     cookieState.value = LINKED.id;
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-13"]).toEqual({ type: "practice", done: 1, total: TEST_PLAN_TASK_TOTAL });
+    expect(result["2026-04-13"]).toEqual({ type: "practice", done: 1, total: TEST_PLAN_TASK_TOTAL, ticked: false });
   });
 
   it("still marks class days non-practice for primary accounts", async () => {

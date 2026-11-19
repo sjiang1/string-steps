@@ -198,14 +198,17 @@ export async function toggleTask(date: string, taskKey: string): Promise<string[
   return toggleDone(doneLogId(student, date), taskKey);
 }
 
+// `ticked` says whether the primary ticked anything that day, whoever is
+// viewing: the calendar uses it to show a past day as not relabellable (#30).
 export type MonthProgressEntry =
-  | { type: "practice"; done: number; total: number }
+  | { type: "practice"; done: number; total: number; ticked: boolean }
   | { type: "non-practice"; dayTypeId: string };
 
 export async function getMonthProgress(
   yearMonth: string
 ): Promise<Record<string, MonthProgressEntry>> {
   const student = await getActiveStudent();
+  const primary = await getPrimaryStudent();
   const schedule = await getSchedule();
   const plans = await getPlans();
   const result: Record<string, MonthProgressEntry> = {};
@@ -243,7 +246,13 @@ export async function getMonthProgress(
     const plan = planId === null ? undefined : plans.find((p) => p.id === planId);
     if (plan) {
       const doneTasks = await getDoneTasks(date, student);
-      result[date] = { type: "practice", ...planProgress(plan, doneTasks) };
+      const primaryDone =
+        student.kind === "primary" ? doneTasks : await getDoneTasks(date, primary);
+      result[date] = {
+        type: "practice",
+        ...planProgress(plan, doneTasks),
+        ticked: primaryDone.length > 0,
+      };
     } else if (isNonPracticeDay(value)) {
       result[date] = { type: "non-practice", dayTypeId: value };
     }
