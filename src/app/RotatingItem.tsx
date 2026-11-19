@@ -46,7 +46,7 @@ export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notes
   return (
     <li className="rounded-lg border bg-white p-4">
       <div className="flex flex-wrap items-center gap-2 mb-1">
-        <h3 className="font-semibold">{title}</h3>
+        <h3 className="text-lg font-semibold">{title}</h3>
         <span className="ml-auto text-sm tabular-nums text-zinc-600">
           {tracksDoneToday(item, done)}/{perDay} tracks done today
         </span>
@@ -69,7 +69,7 @@ export default function RotatingItem({ item, tracks, taskTypes, doneTasks, notes
               >
                 <span aria-hidden>{isOpen ? "▾" : "▸"}</span>
                 {isSuggested && <span>⭐</span>}
-                <span className="font-medium">{track?.name ?? id}</span>
+                <span className="text-lg font-medium">{track?.name ?? id}</span>
                 {reencodingIds.includes(id) && <ReencodeMarker />}
                 {speed !== 1 && (
                   <span className="text-xs bg-emerald-100 text-emerald-800 rounded px-1.5 py-0.5">

@@ -1,23 +1,57 @@
 "use client";
 
+import { useRef, useState } from "react";
 import type { Track } from "./plans";
 
+// Audio gets a big Play/Pause button above the native bar so it can be hit
+// from arm's length on the iPad (#50). The button drives the same element the
+// native controls do. The label follows the element's events rather than its
+// own idea of the state: play/pause/ended, plus `emptied` (a die roll swaps
+// `src`, which pauses without a pause event) and `error` (a failed load after
+// play). The tap itself asks the element whether it is paused, so a stale
+// label can never make the button do nothing.
+//
 // Browsers reset playbackRate whenever the media (re)loads, so re-apply the
 // speed on every loadedmetadata, not just on mount.
 function SpeedAudio({ src, speed }: { src: string; speed: number }) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
   const apply = (el: HTMLAudioElement | null) => {
+    ref.current = el;
     if (!el) return;
     el.defaultPlaybackRate = speed;
     el.playbackRate = speed;
   };
+  const toggle = () => {
+    const el = ref.current;
+    if (!el) return;
+    if (el.paused) el.play().catch(() => {});
+    else el.pause();
+  };
   return (
-    <audio
-      ref={apply}
-      controls
-      className="w-full mb-2"
-      src={src}
-      onLoadedMetadata={(e) => apply(e.currentTarget)}
-    />
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        className={`mb-2 flex min-h-16 w-full items-center justify-center gap-3 rounded-xl text-xl font-semibold ${
+          playing ? "bg-zinc-200 text-zinc-900" : "bg-emerald-600 text-white"
+        }`}
+      >
+        {playing ? "⏸ Pause" : "▶ Play"}
+      </button>
+      <audio
+        ref={apply}
+        controls
+        className="w-full mb-2"
+        src={src}
+        onLoadedMetadata={(e) => apply(e.currentTarget)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onEmptied={() => setPlaying(false)}
+        onError={() => setPlaying(false)}
+      />
+    </>
   );
 }
 

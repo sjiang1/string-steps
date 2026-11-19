@@ -33,3 +33,6 @@ next-env.d.ts
 
 # Local drop folder for personal recordings before upload to Blob — never committed
 /recordings/
+
+# Personal scratch files (billing exports, dashboards, notes) — never committed
+/local/
