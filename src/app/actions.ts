@@ -5,7 +5,7 @@ import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
 import { cookies } from "next/headers";
 import type { Plan, PracticeItem, PlanSchedule, Track } from "./plans";
-import { practicePlanIdOn } from "./plans";
+import { mostRecentPastPracticePlanIdAsOf, practicePlanIdOn } from "./plans";
 import { rhythms } from "./rhythms";
 import { isNonPracticeDay } from "./day-types";
 import { todayLocal } from "./today";
@@ -114,20 +114,39 @@ export async function getSchedule(): Promise<PlanSchedule> {
   return schedule;
 }
 
-// Sets or clears a day-type label for a date in the schedule. Today + future
-// only (past days are read-only); a null dayTypeId clears the label by deleting
-// the entry, so the date defaults to a practice day when it arrives (via
-// ensureTodayInSchedule / resolveActivePlanId). Unauthenticated, matching the
-// other schedule/plan mutations.
+// Sets or clears a day-type label for a date in the schedule. Any date, with
+// one rule for the past (#30): a day the primary ticked practice on cannot be
+// relabelled, since a label would hide those ticks from the calendar and the
+// Teacher report. Linked accounts' ticks don't count; they fall back to the
+// previous plan on class days anyway. Clearing a label on today or a future
+// date deletes the entry, so the date defaults to a practice day when it
+// arrives (ensureTodayInSchedule / resolveActivePlanId); clearing a past date
+// writes back the plan that was active then, because nothing fills past days
+// in automatically. Unauthenticated, matching the other schedule/plan
+// mutations.
 export async function setDayType(date: string, dayTypeId: string | null): Promise<void> {
-  if (date < todayLocal()) {
-    throw new Error(`Cannot label a past date (${date})`);
-  }
   if (dayTypeId !== null && !isNonPracticeDay(dayTypeId)) {
     throw new Error(`Unknown day type "${dayTypeId}"`);
   }
-  if (dayTypeId === null) await deleteScheduleEntry(date);
-  else await setScheduleEntry(date, dayTypeId);
+  const past = date < todayLocal();
+  if (past) {
+    const ticks = await getDoneTasks(date, await getPrimaryStudent());
+    if (ticks.length > 0) {
+      throw new Error(`Cannot relabel ${date}: practice was logged that day`);
+    }
+  }
+  if (dayTypeId !== null) {
+    await setScheduleEntry(date, dayTypeId);
+    return;
+  }
+  if (past) {
+    const previous = mostRecentPastPracticePlanIdAsOf(date, await getScheduleMap());
+    if (previous !== null) {
+      await setScheduleEntry(date, previous);
+      return;
+    }
+  }
+  await deleteScheduleEntry(date);
 }
 
 export async function getTracks(): Promise<Track[]> {

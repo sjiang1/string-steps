@@ -787,10 +787,67 @@ describe("setDayType", () => {
     expect((await getSchedule())["2026-06-20"]).toBeUndefined();
   });
 
-  it("rejects a past date", async () => {
+  it("labels a past date that has no ticks", async () => {
+    setupScheduleData({ "2026-06-01": "0" });
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-01", "individual-class");
+    expect((await getSchedule())["2026-06-01"]).toBe("individual-class");
+  });
+
+  it("labels a past date that has no entry", async () => {
     setupScheduleData({});
-    const { setDayType } = await loadActions();
-    await expect(setDayType("2026-06-01", "sick")).rejects.toThrow(/past/i);
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-01", "sick");
+    expect((await getSchedule())["2026-06-01"]).toBe("sick");
+    await setDayType("2026-06-01", null);
+    expect((await getSchedule())["2026-06-01"]).toBeUndefined();
+  });
+
+  it("refuses a past date where the primary ticked practice, leaving the schedule alone", async () => {
+    setupScheduleData({ "2026-06-01": "0" });
+    writeFileSync(tempFile, JSON.stringify({ "2026-06-01": ["t-sing-0"] }));
+    const { setDayType, getSchedule } = await loadActions();
+    await expect(setDayType("2026-06-01", "individual-class")).rejects.toThrow(
+      "Cannot relabel 2026-06-01: practice was logged that day",
+    );
+    expect((await getSchedule())["2026-06-01"]).toBe("0");
+  });
+
+  it("ignores a linked account's ticks when deciding", async () => {
+    setupScheduleData({ "2026-06-01": "0" });
+    writeFileSync(tempFile, JSON.stringify({ [`2026-06-01:${LINKED.id}`]: ["t-sing-0"] }));
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-01", "group-class");
+    expect((await getSchedule())["2026-06-01"]).toBe("group-class");
+  });
+
+  it("labels today even when practice is ticked", async () => {
+    setupScheduleData({ "2026-06-15": "0" });
+    writeFileSync(tempFile, JSON.stringify({ "2026-06-15": ["t-sing-0"] }));
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-15", "individual-class");
+    expect((await getSchedule())["2026-06-15"]).toBe("individual-class");
+  });
+
+  it("clearing a past label restores the plan that was active then", async () => {
+    setupScheduleData({ "2026-05-30": "0", "2026-06-01": "1", "2026-06-02": "sick" });
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-02", null);
+    expect((await getSchedule())["2026-06-02"]).toBe("1");
+  });
+
+  it("clearing a past label skips non-practice days when restoring", async () => {
+    setupScheduleData({ "2026-05-30": "0", "2026-06-01": "sick", "2026-06-02": "individual-class" });
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-02", null);
+    expect((await getSchedule())["2026-06-02"]).toBe("0");
+  });
+
+  it("clearing a past label with no earlier plan deletes the entry", async () => {
+    setupScheduleData({ "2026-06-02": "sick" });
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-02", null);
+    expect((await getSchedule())["2026-06-02"]).toBeUndefined();
   });
 
   it("rejects an unknown day-type id", async () => {
