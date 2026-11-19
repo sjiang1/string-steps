@@ -22,6 +22,15 @@ describe("DaySheet", () => {
     ).toBeTruthy();
   });
 
+  it("keeps the current label tappable on a blocked day, so it can be cleared", () => {
+    render(<DaySheet {...base} currentDayTypeId="sick" past blocked />);
+    const current = screen.getByRole("button", { name: /sick/i }) as HTMLButtonElement;
+    expect(current.disabled).toBe(false);
+    fireEvent.click(current);
+    expect(onApply).toHaveBeenCalledWith(null);
+    expect((screen.getByRole("button", { name: /individual class/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("explains restore-on-clear for a past day that is not blocked", () => {
     render(<DaySheet {...base} past blocked={false} />);
     expect(

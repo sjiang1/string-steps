@@ -178,6 +178,17 @@ describe("getMonthProgress", () => {
     expect(entry).toMatchObject({ type: "practice", done: 0, ticked: true });
   });
 
+  it("marks a labelled day ticked too, so the calendar can refuse another label", async () => {
+    setupScheduleData({ "2026-04-11": "individual-class" });
+    writeFileSync(tempFile, JSON.stringify({ "2026-04-11": ["demo-a-playWithTrack-0"] }));
+    const { getMonthProgress } = await loadActions();
+    expect((await getMonthProgress("2026-04"))["2026-04-11"]).toEqual({
+      type: "non-practice",
+      dayTypeId: "individual-class",
+      ticked: true,
+    });
+  });
+
   it("marks a day not ticked when the primary's log is empty", async () => {
     setupScheduleData({ "2026-04-10": "1" });
     setupPlansData(TEST_PLANS);
@@ -300,21 +311,21 @@ describe("getMonthProgress", () => {
     setupScheduleData({ "2026-04-11": "group-class" });
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-11"]).toEqual({ type: "non-practice", dayTypeId: "group-class" });
+    expect(result["2026-04-11"]).toEqual({ type: "non-practice", dayTypeId: "group-class", ticked: false });
   });
 
   it("returns non-practice entry for individual class days", async () => {
     setupScheduleData({ "2026-04-09": "individual-class" });
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-09"]).toEqual({ type: "non-practice", dayTypeId: "individual-class" });
+    expect(result["2026-04-09"]).toEqual({ type: "non-practice", dayTypeId: "individual-class", ticked: false });
   });
 
   it("returns non-practice entry for sick days", async () => {
     setupScheduleData({ "2026-04-20": "sick" });
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-20"]).toEqual({ type: "non-practice", dayTypeId: "sick" });
+    expect(result["2026-04-20"]).toEqual({ type: "non-practice", dayTypeId: "sick", ticked: false });
   });
 
   it("omits days with no schedule entry", async () => {
@@ -351,7 +362,7 @@ describe("getMonthProgress", () => {
     setupScheduleData({ "2026-04-10": "1", "2026-04-13": "individual-class" });
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-13"]).toEqual({ type: "non-practice", dayTypeId: "individual-class" });
+    expect(result["2026-04-13"]).toEqual({ type: "non-practice", dayTypeId: "individual-class", ticked: false });
   });
 
   it("still marks sick days non-practice for linked accounts", async () => {
@@ -360,7 +371,7 @@ describe("getMonthProgress", () => {
     cookieState.value = LINKED.id;
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-20"]).toEqual({ type: "non-practice", dayTypeId: "sick" });
+    expect(result["2026-04-20"]).toEqual({ type: "non-practice", dayTypeId: "sick", ticked: false });
   });
 
   it("falls back to non-practice on class days for linked accounts when no past practice plan exists", async () => {
@@ -369,7 +380,7 @@ describe("getMonthProgress", () => {
     cookieState.value = LINKED.id;
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-09"]).toEqual({ type: "non-practice", dayTypeId: "individual-class" });
+    expect(result["2026-04-09"]).toEqual({ type: "non-practice", dayTypeId: "individual-class", ticked: false });
   });
 });
 
@@ -834,9 +845,25 @@ describe("setDayType", () => {
     setupScheduleData({ "2026-06-01": "0" });
     writeFileSync(tempFile, JSON.stringify({ "2026-06-01": ["t-sing-0"] }));
     const { setDayType, getSchedule } = await loadActions();
-    await expect(setDayType("2026-06-01", "individual-class")).rejects.toThrow(
-      "Cannot relabel 2026-06-01: practice was logged that day",
-    );
+    // Returned, not thrown: a thrown message is redacted in production.
+    expect(await setDayType("2026-06-01", "individual-class")).toEqual({
+      ok: false,
+      error: "Cannot relabel 2026-06-01: practice was logged that day",
+    });
+    expect((await getSchedule())["2026-06-01"]).toBe("0");
+  });
+
+  it("reports ok when a label is written", async () => {
+    setupScheduleData({});
+    const { setDayType } = await loadActions();
+    expect(await setDayType("2026-06-20", "sick")).toEqual({ ok: true });
+  });
+
+  it("always lets a past label be cleared, even with ticks: clearing reveals them", async () => {
+    setupScheduleData({ "2026-05-30": "0", "2026-06-01": "individual-class" });
+    writeFileSync(tempFile, JSON.stringify({ "2026-06-01": ["t-sing-0"] }));
+    const { setDayType, getSchedule } = await loadActions();
+    expect(await setDayType("2026-06-01", null)).toEqual({ ok: true });
     expect((await getSchedule())["2026-06-01"]).toBe("0");
   });
 

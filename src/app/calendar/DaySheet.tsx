@@ -3,8 +3,9 @@
 import { dayTypes } from "../day-types";
 
 // `past` days can be relabelled too (#30), except a `blocked` one: the primary
-// ticked practice on it, and a label would hide those ticks. `error` is the
-// server action's own message when a save fails, shown as-is.
+// ticked practice on it, and a label would hide those ticks. Its current label
+// stays tappable, because clearing reveals the ticks. `error` is the server
+// action's refusal text, shown as-is.
 export default function DaySheet({
   date,
   currentDayTypeId,
@@ -46,7 +47,7 @@ export default function DaySheet({
               <li key={t.id}>
                 <button
                   onClick={() => onApply(current ? null : t.id)}
-                  disabled={blocked}
+                  disabled={blocked && !current}
                   className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left hover:bg-zinc-50 disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <span className="text-xl">{t.emoji}</span>

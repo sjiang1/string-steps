@@ -126,11 +126,11 @@ export default function CalendarGrid({ initialYear, initialMonth, progress: init
 
   async function applyDayType(dayTypeId: string | null) {
     if (!picking) return;
-    try {
-      await setDayType(picking, dayTypeId);
-    } catch (err) {
-      // The action's own message (e.g. a tick landed after the sheet opened).
-      setError(err instanceof Error ? err.message : String(err));
+    // A refusal comes back as a value (e.g. a tick landed after the sheet
+    // opened); the sheet shows it and stays open.
+    const result = await setDayType(picking, dayTypeId);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
     const ym = yearMonthKey(year, month);
@@ -145,10 +145,10 @@ export default function CalendarGrid({ initialYear, initialMonth, progress: init
     setPicking(date);
   }
 
-  // A past day the primary ticked practice on cannot be relabelled (#30).
+  // A past day the primary ticked practice on cannot be given a label (#30);
+  // its current label, if any, can still be cleared.
   function isBlocked(date: string): boolean {
-    const entry = progress[date];
-    return date < today && entry?.type === "practice" && entry.ticked;
+    return date < today && progress[date]?.ticked === true;
   }
 
   function currentDayTypeId(date: string): string | null {
