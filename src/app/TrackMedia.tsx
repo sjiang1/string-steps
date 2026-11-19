@@ -5,8 +5,11 @@ import type { Track } from "./plans";
 
 // Audio gets a big Play/Pause button above the native bar so it can be hit
 // from arm's length on the iPad (#50). The button drives the same element the
-// native controls do, and its label follows the element's play/pause/ended
-// events, so pressing play on either control keeps the other honest.
+// native controls do. The label follows the element's events rather than its
+// own idea of the state: play/pause/ended, plus `emptied` (a die roll swaps
+// `src`, which pauses without a pause event) and `error` (a failed load after
+// play). The tap itself asks the element whether it is paused, so a stale
+// label can never make the button do nothing.
 //
 // Browsers reset playbackRate whenever the media (re)loads, so re-apply the
 // speed on every loadedmetadata, not just on mount.
@@ -22,8 +25,8 @@ function SpeedAudio({ src, speed }: { src: string; speed: number }) {
   const toggle = () => {
     const el = ref.current;
     if (!el) return;
-    if (playing) el.pause();
-    else el.play().catch(() => {});
+    if (el.paused) el.play().catch(() => {});
+    else el.pause();
   };
   return (
     <>
@@ -45,6 +48,8 @@ function SpeedAudio({ src, speed }: { src: string; speed: number }) {
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
+        onEmptied={() => setPlaying(false)}
+        onError={() => setPlaying(false)}
       />
     </>
   );

@@ -39,6 +39,7 @@ describe("TrackMedia audio", () => {
     act(() => {
       fireEvent(audioEl(), new Event("play"));
     });
+    Object.defineProperty(audioEl(), "paused", { configurable: true, value: false });
     fireEvent.click(screen.getByRole("button", { name: /pause/i }));
     expect(pause).toHaveBeenCalledTimes(1);
   });
@@ -64,6 +65,43 @@ describe("TrackMedia audio", () => {
       fireEvent(audioEl(), new Event("ended"));
     });
     expect(screen.getByRole("button").textContent).toBe("▶ Play");
+  });
+
+  it("returns to Play when the source is swapped mid-play (die roll)", () => {
+    render(<TrackMedia track={AUDIO} speed={1} />);
+    act(() => {
+      fireEvent(audioEl(), new Event("play"));
+    });
+    // Changing src runs the load algorithm: paused becomes true and `emptied`
+    // fires, but no `pause` event does.
+    act(() => {
+      fireEvent(audioEl(), new Event("emptied"));
+    });
+    expect(screen.getByRole("button").textContent).toBe("▶ Play");
+  });
+
+  it("returns to Play when the file fails to load after play", () => {
+    render(<TrackMedia track={AUDIO} speed={1} />);
+    act(() => {
+      fireEvent(audioEl(), new Event("play"));
+    });
+    act(() => {
+      fireEvent(audioEl(), new Event("error"));
+    });
+    expect(screen.getByRole("button").textContent).toBe("▶ Play");
+  });
+
+  it("decides play vs pause from the element, not the label", () => {
+    // Label says Pause but the element is already paused (stale state):
+    // a tap must start playback rather than pause nothing.
+    render(<TrackMedia track={AUDIO} speed={1} />);
+    act(() => {
+      fireEvent(audioEl(), new Event("play"));
+    });
+    Object.defineProperty(audioEl(), "paused", { configurable: true, value: true });
+    fireEvent.click(screen.getByRole("button"));
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(pause).not.toHaveBeenCalled();
   });
 
   it("a rejected play() is swallowed and the label stays Play", async () => {
