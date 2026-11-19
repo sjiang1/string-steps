@@ -859,6 +859,26 @@ describe("setDayType", () => {
     expect(await setDayType("2026-06-20", "sick")).toEqual({ ok: true });
   });
 
+  it("refuses to label the latest practice day when today is a class day", async () => {
+    // June 14 is the only day carrying plan 1; today is a class day, so the
+    // next auto-fill would fall back to plan 0 and plan 1 would be lost.
+    setupScheduleData({ "2026-06-01": "0", "2026-06-14": "1", "2026-06-15": "group-class" });
+    const { setDayType, getSchedule } = await loadActions();
+    expect(await setDayType("2026-06-14", "sick")).toEqual({
+      ok: false,
+      error:
+        "Cannot relabel 2026-06-14: it is the latest practice day, so the plan it started would be lost. Try again after the next practice day.",
+    });
+    expect((await getSchedule())["2026-06-14"]).toBe("1");
+  });
+
+  it("labels a past practice day once a later day carries a plan", async () => {
+    setupScheduleData({ "2026-06-01": "0", "2026-06-14": "1", "2026-06-15": "1" });
+    const { setDayType, getSchedule } = await loadActions();
+    expect(await setDayType("2026-06-14", "sick")).toEqual({ ok: true });
+    expect((await getSchedule())["2026-06-14"]).toBe("sick");
+  });
+
   it("always lets a past label be cleared, even with ticks: clearing reveals them", async () => {
     setupScheduleData({ "2026-05-30": "0", "2026-06-01": "individual-class" });
     writeFileSync(tempFile, JSON.stringify({ "2026-06-01": ["t-sing-0"] }));

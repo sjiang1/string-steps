@@ -116,6 +116,13 @@ export async function getSchedule(): Promise<PlanSchedule> {
 
 export type SetDayTypeResult = { ok: true } | { ok: false; error: string };
 
+// Whether `date` holds a plan id and no later date holds any plan id.
+function isLatestPlanDay(date: string, schedule: PlanSchedule): boolean {
+  const value = schedule[date];
+  if (value === undefined || isNonPracticeDay(value)) return false;
+  return !Object.entries(schedule).some(([d, v]) => d > date && !isNonPracticeDay(v));
+}
+
 // Sets or clears a day-type label for a date in the schedule. Any date, with
 // one rule for the past (#30): a day the primary ticked practice on cannot be
 // given a label, since a label would hide those ticks from the calendar and
@@ -141,6 +148,18 @@ export async function setDayType(
       const ticks = await getDoneTasks(date, await getPrimaryStudent());
       if (ticks.length > 0) {
         return { ok: false, error: `Cannot relabel ${date}: practice was logged that day` };
+      }
+      // ensureTodayInSchedule copies the plan from the latest day that holds
+      // one. If this day is that day (today being a class day, so it was not
+      // auto-filled), labelling it would make tomorrow fall back to an older
+      // plan. getSchedule() rather than the raw map, so today counts when it
+      // can be filled in.
+      const schedule = await getSchedule();
+      if (isLatestPlanDay(date, schedule)) {
+        return {
+          ok: false,
+          error: `Cannot relabel ${date}: it is the latest practice day, so the plan it started would be lost. Try again after the next practice day.`,
+        };
       }
     }
     await setScheduleEntry(date, dayTypeId);

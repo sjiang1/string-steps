@@ -38,16 +38,22 @@ describe("CalendarGrid past days", () => {
     );
   });
 
+  it("announces the day's status in the cell's accessible name", () => {
+    grid();
+    expect(screen.getByRole("button", { name: "2, 1/3" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "1" })).toBeTruthy();
+  });
+
   it("opens a ticked past day as blocked", async () => {
     grid();
-    fireEvent.click(screen.getByRole("button", { name: /^2$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^2\b/ }));
     const b = (await screen.findByRole("button", { name: /individual class/i })) as HTMLButtonElement;
     expect(b.disabled).toBe(true);
   });
 
   it("lets a ticked labelled day be cleared but not relabelled", async () => {
     grid();
-    fireEvent.click(screen.getByRole("button", { name: /^3$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^3\b/ }));
     const current = (await screen.findByRole("button", { name: /individual class/i })) as HTMLButtonElement;
     const other = screen.getByRole("button", { name: /sick/i }) as HTMLButtonElement;
     expect(current.disabled).toBe(false);

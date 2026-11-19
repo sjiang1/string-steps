@@ -32,7 +32,7 @@ Silently hiding practice that was logged. Hence the block below rather than a wa
 
 ## Design
 
-**Rule.** A past date may be given a label unless the primary account's done log for that date has at least one entry. Clearing is always allowed. Linked accounts' ticks do not block: they are not in active use (Siyuan, 2026-11-19), and on class days their calendar and report already fall back to the previous plan. A past sick label can therefore hide a linked account's ticks; accepted. The rule is enforced in the server action, not only in the UI.
+**Rule.** A past date may be given a label unless the primary account's done log for that date has at least one entry. Clearing is always allowed. Linked accounts' ticks do not block: they are not in active use (Siyuan, 2026-11-19), and on class days their calendar and report already fall back to the previous plan. A past sick label can therefore hide a linked account's ticks; accepted. A second refusal: a past day that is the latest day holding a plan (possible when today is itself a class day, so it was never auto-filled) cannot be labelled either, because tomorrow's auto-fill copies the plan from the latest such day and the newest plan would be lost; the sheet says to try again after the next practice day. Both rules are enforced in the server action, not only in the UI.
 
 **`setDayType(date, dayTypeId)` in `src/app/actions.ts`.**
 - Drop the `date < today` rejection.
@@ -51,6 +51,7 @@ Silently hiding practice that was logged. Hence the block below rather than a wa
 
 - Labelling and then clearing a past day that never had a schedule entry leaves it on the previous plan: the cell turns from grey to red 0/N and the Teacher report counts that day's targets.
 - Clearing a label on the exact day a new plan was activated restores the older plan for that one day.
+- The ticks check and the schedule write are two operations; a tick landing in the milliseconds between them would be hidden. Accepted: one household, and the practice tab is not used while the calendar is being edited.
 - The calendar's idea of "today" is fixed at page load; after midnight the server may refuse a label the sheet offered. The refusal text covers it.
 
 ## Testing

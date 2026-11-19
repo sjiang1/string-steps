@@ -86,7 +86,7 @@ function DayCell({
       type="button"
       disabled={!tappable}
       onClick={onClick}
-      aria-label={String(day)}
+      aria-label={label ? `${day}, ${label}` : String(day)}
       className={`rounded py-1.5 flex flex-col items-center justify-center text-xs ${bg} ${ring} ${muted} ${cursor} disabled:cursor-default`}
     >
       <span className="font-medium">{day}</span>
