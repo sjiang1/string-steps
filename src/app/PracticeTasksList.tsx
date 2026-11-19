@@ -86,7 +86,7 @@ export default function PracticeTasksList({ items, tracks, taskTypes, doneTasks,
           return (
             <li key={itemKey} className="rounded-lg border bg-white p-4">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold">{title}</h3>
+                <h3 className="text-lg font-semibold">{title}</h3>
                 {reencodingIds.includes(trackId) && <ReencodeMarker />}
                 {track?.type === "video" && (
                   <span className="text-xs bg-zinc-100 text-zinc-500 rounded px-1.5 py-0.5">

@@ -86,7 +86,7 @@ export default function TaskList({
   }
 
   return (
-    <ul className="flex flex-wrap gap-2 mb-2">
+    <ul className="flex flex-wrap gap-3 mb-5">
       {tasks.map((task) => {
         const isValid = taskTypes.some((t) => t.type === task.type);
         const doneCount = doneCountForTask(trackId, task, done);
@@ -107,7 +107,7 @@ export default function TaskList({
             <button
               onClick={(e) => advance(e, task)}
               disabled={isPending}
-              className={`rounded-xl px-4 py-2 text-base font-medium transition-colors duration-1000 ${bg} ${isPending ? "opacity-60" : ""}`}
+              className={`min-h-14 rounded-xl px-5 py-3 text-lg font-medium transition-colors duration-1000 ${bg} ${isPending ? "opacity-60" : ""}`}
             >
               {stateIcon} {TASK_LABEL[task.type] ?? task.type}
               {task.focus ? ` · ${task.focus}` : ""}{" "}

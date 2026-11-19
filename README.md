@@ -14,7 +14,7 @@ Each track can require one or more of the following tasks:
 - **Practice on violin with track** — play along to the audio
 - **Practice on violin without track** — play independently
 
-Each task has a repeat count, and any task can be a **focus drill** — scoped to a specific passage (e.g. *bars 5–8*) so the student knows exactly which part to work on. Some tracks need just one task; others combine several.
+Each task has a repeat count, and any task can be a **focus drill** — scoped to a specific passage (e.g. *bars 5–8*) so the student knows exactly which part to work on. Some tracks need just one task; others combine several. On the iPad the task buttons and a large Play button are sized for tapping from arm's length; see the [tap-target design](docs/superpowers/specs/2026-11-19-bigger-tap-targets-design.md).
 
 ### Track Types
 
