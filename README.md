@@ -79,7 +79,7 @@ Ids not in the catalog are silently skipped, so it's safe to add an id to a plan
 
 ### Calendar
 
-The **Calendar** tab shows each day at a glance — how much of that day's plan was completed, plus class days and sick days — and lets the student open any day to practice it.
+The **Calendar** tab shows each day at a glance — how much of that day's plan was completed, plus class days and sick days — and lets the student open any day to practice it. Past days can be relabelled too, for a class day that was forgotten, unless practice was ticked that day; see the [design](docs/superpowers/specs/2026-11-19-label-past-days-design.md).
 
 ### Plans
 

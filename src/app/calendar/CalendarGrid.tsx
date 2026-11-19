@@ -86,6 +86,7 @@ function DayCell({
       type="button"
       disabled={!tappable}
       onClick={onClick}
+      aria-label={String(day)}
       className={`rounded py-1.5 flex flex-col items-center justify-center text-xs ${bg} ${ring} ${muted} ${cursor} disabled:cursor-default`}
     >
       <span className="font-medium">{day}</span>
@@ -100,6 +101,7 @@ export default function CalendarGrid({ initialYear, initialMonth, progress: init
   const [progress, setProgress] = useState(initialProgress);
   const [loading, setLoading] = useState(false);
   const [picking, setPicking] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function navigate(dir: -1 | 1) {
     let newMonth = month + dir;
@@ -124,11 +126,29 @@ export default function CalendarGrid({ initialYear, initialMonth, progress: init
 
   async function applyDayType(dayTypeId: string | null) {
     if (!picking) return;
-    await setDayType(picking, dayTypeId);
+    try {
+      await setDayType(picking, dayTypeId);
+    } catch (err) {
+      // The action's own message (e.g. a tick landed after the sheet opened).
+      setError(err instanceof Error ? err.message : String(err));
+      return;
+    }
     const ym = yearMonthKey(year, month);
     const res = await fetch(`/api/calendar?month=${ym}`);
     setProgress(await res.json());
+    setError(null);
     setPicking(null);
+  }
+
+  function openSheet(date: string) {
+    setError(null);
+    setPicking(date);
+  }
+
+  // A past day the primary ticked practice on cannot be relabelled (#30).
+  function isBlocked(date: string): boolean {
+    const entry = progress[date];
+    return date < today && entry?.type === "practice" && entry.ticked;
   }
 
   function currentDayTypeId(date: string): string | null {
@@ -176,8 +196,8 @@ export default function CalendarGrid({ initialYear, initialMonth, progress: init
               entry={progress[date]}
               isToday={date === today}
               isFuture={isFuture}
-              tappable={date >= today}
-              onClick={() => setPicking(date)}
+              tappable
+              onClick={() => openSheet(date)}
             />
           );
         })}
@@ -187,6 +207,9 @@ export default function CalendarGrid({ initialYear, initialMonth, progress: init
         <DaySheet
           date={picking}
           currentDayTypeId={currentDayTypeId(picking)}
+          past={picking < today}
+          blocked={isBlocked(picking)}
+          error={error}
           onApply={applyDayType}
           onClose={() => setPicking(null)}
         />
