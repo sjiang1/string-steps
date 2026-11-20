@@ -93,7 +93,7 @@ While practicing, the student can add a short note to any track (how it went, wh
 
 ### Teacher View
 
-The **Teacher** tab gives the teacher a read-only summary of recent practice — the tracks worked on and any notes — covering the stretch since the last class day.
+The **Teacher** tab gives the teacher a read-only summary of recent practice — the tracks worked on and any notes — covering the stretch since the last **individual** class. Group classes are skipped, since nothing is reported at them, so practice before a group class still reaches the teacher at the next individual lesson.
 
 Tick notes to build an email draft for the teacher and copy it to the clipboard. It signs off with the student's name, or with both names (`— Mama Bear & Mozart X`) when the primary student in `students:list` has a `"parentName"`.
 
