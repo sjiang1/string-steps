@@ -7,6 +7,9 @@ export type DayType = {
   bgClass: string;
   textClass: string;
   isClassDay?: boolean;
+  // The Teacher page reports everything since the most recent day of a type
+  // with this flag. Group classes are class days but are not reported at.
+  anchorsTeacherReport?: boolean;
 };
 
 export const dayTypes: DayType[] = dayTypesData;
@@ -21,4 +24,8 @@ export function isNonPracticeDay(value: string): boolean {
 
 export function isClassDay(id: string): boolean {
   return getDayType(id)?.isClassDay === true;
+}
+
+export function anchorsTeacherReport(id: string): boolean {
+  return getDayType(id)?.anchorsTeacherReport === true;
 }

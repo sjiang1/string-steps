@@ -1,4 +1,4 @@
-import { isClassDay } from "./day-types";
+import { anchorsTeacherReport } from "./day-types";
 import { primaryTrackId, type Plan, type PlanSchedule, type Track } from "./plans";
 import { isRotating, trackFullyDone } from "./rotation";
 import { doneCountForTask } from "./task-keys";
@@ -7,8 +7,9 @@ export type TeacherWindow = {
   startDate: string;
   endDate: string;
   // True when the window was bounded to the most recent MAX_WINDOW_DAYS because
-  // there was no usable recent class-day anchor (none at all, or one so old the
-  // natural window would balloon). False for a normal "since last class" window.
+  // there was no usable recent anchor (no individual class at all, or one so old
+  // the natural window would balloon). False for a normal "since last individual
+  // class" window.
   bounded: boolean;
 };
 
@@ -26,8 +27,10 @@ export function datesInRange(startDate: string, endDate: string): string[] {
   return out;
 }
 
-// The report normally spans the day after the last class day through endDate.
-// When there's no usable recent class-day anchor — none at all, or one so old
+// The report normally spans the day after the last individual class through
+// endDate. Group classes are skipped: nothing is reported there, so practice
+// before one still belongs to the next individual class (#55).
+// When there's no usable recent anchor — none at all, or one so old
 // the window would balloon (e.g. the demo seed's lone 2020 class day, which
 // would otherwise produce a ~6-year range iterating thousands of dates) — bound
 // it to the most recent MAX_WINDOW_DAYS instead. One bounded path serves both.
@@ -39,12 +42,12 @@ export function computeTeacherWindow(
 ): TeacherWindow {
   let lastClass: string | null = null;
   for (const [date, value] of Object.entries(schedule)) {
-    if (date < today && isClassDay(value)) {
+    if (date < today && anchorsTeacherReport(value)) {
       if (lastClass === null || date > lastClass) lastClass = date;
     }
   }
 
-  const todayIsClass = isClassDay(schedule[today] ?? "");
+  const todayIsClass = anchorsTeacherReport(schedule[today] ?? "");
   const endDate = todayIsClass ? addDays(today, -1) : today;
 
   const earliestStart = addDays(endDate, -(MAX_WINDOW_DAYS - 1));

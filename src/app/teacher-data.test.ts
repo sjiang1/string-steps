@@ -48,7 +48,37 @@ describe("computeTeacherWindow", () => {
     });
   });
 
-  it("ends the day before today when today is itself a class day", () => {
+  it("ends the day before today when today is itself an individual class", () => {
+    const schedule = {
+      "2026-04-14": "individual-class",
+      "2026-04-15": "3",
+      "2026-04-16": "4",
+      "2026-04-17": "individual-class",
+    };
+    expect(computeTeacherWindow("2026-04-17", schedule)).toEqual({
+      startDate: "2026-04-15",
+      endDate: "2026-04-16",
+      bounded: false,
+    });
+  });
+
+  it("ignores a group class in between: the window still starts after the last individual class", () => {
+    const schedule = {
+      "2026-04-10": "individual-class",
+      "2026-04-11": "3",
+      "2026-04-12": "3",
+      "2026-04-13": "group-class",
+      "2026-04-14": "3",
+      "2026-04-15": "3",
+    };
+    expect(computeTeacherWindow("2026-04-15", schedule)).toEqual({
+      startDate: "2026-04-11",
+      endDate: "2026-04-15",
+      bounded: false,
+    });
+  });
+
+  it("still ends today when today is a group class", () => {
     const schedule = {
       "2026-04-14": "individual-class",
       "2026-04-15": "3",
@@ -57,8 +87,17 @@ describe("computeTeacherWindow", () => {
     };
     expect(computeTeacherWindow("2026-04-17", schedule)).toEqual({
       startDate: "2026-04-15",
-      endDate: "2026-04-16",
+      endDate: "2026-04-17",
       bounded: false,
+    });
+  });
+
+  it("bounds to 14 days when the only recent class was a group class", () => {
+    const schedule = { "2026-04-14": "group-class", "2026-04-15": "3" };
+    expect(computeTeacherWindow("2026-04-17", schedule)).toEqual({
+      startDate: "2026-04-04",
+      endDate: "2026-04-17",
+      bounded: true,
     });
   });
 
