@@ -5,7 +5,8 @@
     "emoji": "👦👨‍🏫",
     "bgClass": "bg-blue-100",
     "textClass": "text-blue-700",
-    "isClassDay": true
+    "isClassDay": true,
+    "anchorsTeacherReport": true
   },
   {
     "id": "group-class",
