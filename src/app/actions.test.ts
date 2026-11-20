@@ -165,7 +165,45 @@ describe("getMonthProgress", () => {
       type: "practice",
       done: 1,
       total: TEST_PLAN_TASK_TOTAL,
+      ticked: true,
     });
+  });
+
+  it("marks a day ticked when the primary logged anything, even an unfinished task", async () => {
+    setupScheduleData({ "2026-04-10": "1" });
+    setupPlansData(TEST_PLANS);
+    writeFileSync(tempFile, JSON.stringify({ "2026-04-10": ["demo-a-playWithTrack-0"] }));
+    const { getMonthProgress } = await loadActions();
+    const entry = (await getMonthProgress("2026-04"))["2026-04-10"];
+    expect(entry).toMatchObject({ type: "practice", done: 0, ticked: true });
+  });
+
+  it("marks a labelled day ticked too, so the calendar can refuse another label", async () => {
+    setupScheduleData({ "2026-04-11": "individual-class" });
+    writeFileSync(tempFile, JSON.stringify({ "2026-04-11": ["demo-a-playWithTrack-0"] }));
+    const { getMonthProgress } = await loadActions();
+    expect((await getMonthProgress("2026-04"))["2026-04-11"]).toEqual({
+      type: "non-practice",
+      dayTypeId: "individual-class",
+      ticked: true,
+    });
+  });
+
+  it("marks a day not ticked when the primary's log is empty", async () => {
+    setupScheduleData({ "2026-04-10": "1" });
+    setupPlansData(TEST_PLANS);
+    const { getMonthProgress } = await loadActions();
+    expect((await getMonthProgress("2026-04"))["2026-04-10"]).toMatchObject({ ticked: false });
+  });
+
+  it("ticked follows the primary's log when a linked account is active", async () => {
+    setupStudentsData([PRIMARY, LINKED]);
+    cookieState.value = LINKED.id;
+    setupScheduleData({ "2026-04-10": "1" });
+    setupPlansData(TEST_PLANS);
+    writeFileSync(tempFile, JSON.stringify({ [`2026-04-10:${LINKED.id}`]: ["demo-a-playWithTrack-0"] }));
+    const { getMonthProgress } = await loadActions();
+    expect((await getMonthProgress("2026-04"))["2026-04-10"]).toMatchObject({ ticked: false });
   });
 
   it("counts a task done once all its repetitions are tapped", async () => {
@@ -181,7 +219,7 @@ describe("getMonthProgress", () => {
     writeFileSync(tempFile, JSON.stringify(data));
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 2, total: 2 });
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 2, total: 2, ticked: true });
   });
 
   it("doesn't count a task with more taps than its target, matching the task list's ✅", async () => {
@@ -195,7 +233,7 @@ describe("getMonthProgress", () => {
     writeFileSync(tempFile, JSON.stringify(data));
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 0, total: TEST_PLAN_TASK_TOTAL });
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 0, total: TEST_PLAN_TASK_TOTAL, ticked: true });
   });
 
   it("counts a track-pool task done when any one track in the pool finishes it", async () => {
@@ -234,7 +272,7 @@ describe("getMonthProgress", () => {
     writeFileSync(tempFile, JSON.stringify(data));
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 1, total: 2 });
+    expect(result["2026-04-10"]).toEqual({ type: "practice", done: 1, total: 2, ticked: true });
   });
 
   it("counts a rotating item as perDay tracks' worth of tasks", async () => {
@@ -266,28 +304,28 @@ describe("getMonthProgress", () => {
     );
     const { getMonthProgress } = await loadActions();
     const progress = await getMonthProgress("2026-04");
-    expect(progress["2026-04-09"]).toEqual({ type: "practice", done: 4, total: 4 });
+    expect(progress["2026-04-09"]).toEqual({ type: "practice", done: 4, total: 4, ticked: true });
   });
 
   it("returns non-practice entry for group class days", async () => {
     setupScheduleData({ "2026-04-11": "group-class" });
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-11"]).toEqual({ type: "non-practice", dayTypeId: "group-class" });
+    expect(result["2026-04-11"]).toEqual({ type: "non-practice", dayTypeId: "group-class", ticked: false });
   });
 
   it("returns non-practice entry for individual class days", async () => {
     setupScheduleData({ "2026-04-09": "individual-class" });
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-09"]).toEqual({ type: "non-practice", dayTypeId: "individual-class" });
+    expect(result["2026-04-09"]).toEqual({ type: "non-practice", dayTypeId: "individual-class", ticked: false });
   });
 
   it("returns non-practice entry for sick days", async () => {
     setupScheduleData({ "2026-04-20": "sick" });
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-20"]).toEqual({ type: "non-practice", dayTypeId: "sick" });
+    expect(result["2026-04-20"]).toEqual({ type: "non-practice", dayTypeId: "sick", ticked: false });
   });
 
   it("omits days with no schedule entry", async () => {
@@ -317,14 +355,14 @@ describe("getMonthProgress", () => {
     cookieState.value = LINKED.id;
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-13"]).toEqual({ type: "practice", done: 1, total: TEST_PLAN_TASK_TOTAL });
+    expect(result["2026-04-13"]).toEqual({ type: "practice", done: 1, total: TEST_PLAN_TASK_TOTAL, ticked: false });
   });
 
   it("still marks class days non-practice for primary accounts", async () => {
     setupScheduleData({ "2026-04-10": "1", "2026-04-13": "individual-class" });
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-13"]).toEqual({ type: "non-practice", dayTypeId: "individual-class" });
+    expect(result["2026-04-13"]).toEqual({ type: "non-practice", dayTypeId: "individual-class", ticked: false });
   });
 
   it("still marks sick days non-practice for linked accounts", async () => {
@@ -333,7 +371,7 @@ describe("getMonthProgress", () => {
     cookieState.value = LINKED.id;
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-20"]).toEqual({ type: "non-practice", dayTypeId: "sick" });
+    expect(result["2026-04-20"]).toEqual({ type: "non-practice", dayTypeId: "sick", ticked: false });
   });
 
   it("falls back to non-practice on class days for linked accounts when no past practice plan exists", async () => {
@@ -342,7 +380,7 @@ describe("getMonthProgress", () => {
     cookieState.value = LINKED.id;
     const { getMonthProgress } = await loadActions();
     const result = await getMonthProgress("2026-04");
-    expect(result["2026-04-09"]).toEqual({ type: "non-practice", dayTypeId: "individual-class" });
+    expect(result["2026-04-09"]).toEqual({ type: "non-practice", dayTypeId: "individual-class", ticked: false });
   });
 });
 
@@ -787,10 +825,103 @@ describe("setDayType", () => {
     expect((await getSchedule())["2026-06-20"]).toBeUndefined();
   });
 
-  it("rejects a past date", async () => {
+  it("labels a past date that has no ticks", async () => {
+    setupScheduleData({ "2026-06-01": "0" });
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-01", "individual-class");
+    expect((await getSchedule())["2026-06-01"]).toBe("individual-class");
+  });
+
+  it("labels a past date that has no entry", async () => {
+    setupScheduleData({});
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-01", "sick");
+    expect((await getSchedule())["2026-06-01"]).toBe("sick");
+    await setDayType("2026-06-01", null);
+    expect((await getSchedule())["2026-06-01"]).toBeUndefined();
+  });
+
+  it("refuses a past date where the primary ticked practice, leaving the schedule alone", async () => {
+    setupScheduleData({ "2026-06-01": "0" });
+    writeFileSync(tempFile, JSON.stringify({ "2026-06-01": ["t-sing-0"] }));
+    const { setDayType, getSchedule } = await loadActions();
+    // Returned, not thrown: a thrown message is redacted in production.
+    expect(await setDayType("2026-06-01", "individual-class")).toEqual({
+      ok: false,
+      error: "Cannot relabel 2026-06-01: practice was logged that day",
+    });
+    expect((await getSchedule())["2026-06-01"]).toBe("0");
+  });
+
+  it("reports ok when a label is written", async () => {
     setupScheduleData({});
     const { setDayType } = await loadActions();
-    await expect(setDayType("2026-06-01", "sick")).rejects.toThrow(/past/i);
+    expect(await setDayType("2026-06-20", "sick")).toEqual({ ok: true });
+  });
+
+  it("refuses to label the latest practice day when today is a class day", async () => {
+    // June 14 is the only day carrying plan 1; today is a class day, so the
+    // next auto-fill would fall back to plan 0 and plan 1 would be lost.
+    setupScheduleData({ "2026-06-01": "0", "2026-06-14": "1", "2026-06-15": "group-class" });
+    const { setDayType, getSchedule } = await loadActions();
+    expect(await setDayType("2026-06-14", "sick")).toEqual({
+      ok: false,
+      error:
+        "Cannot relabel 2026-06-14: it is the latest practice day, so the plan it started would be lost. Try again after the next practice day.",
+    });
+    expect((await getSchedule())["2026-06-14"]).toBe("1");
+  });
+
+  it("labels a past practice day once a later day carries a plan", async () => {
+    setupScheduleData({ "2026-06-01": "0", "2026-06-14": "1", "2026-06-15": "1" });
+    const { setDayType, getSchedule } = await loadActions();
+    expect(await setDayType("2026-06-14", "sick")).toEqual({ ok: true });
+    expect((await getSchedule())["2026-06-14"]).toBe("sick");
+  });
+
+  it("always lets a past label be cleared, even with ticks: clearing reveals them", async () => {
+    setupScheduleData({ "2026-05-30": "0", "2026-06-01": "individual-class" });
+    writeFileSync(tempFile, JSON.stringify({ "2026-06-01": ["t-sing-0"] }));
+    const { setDayType, getSchedule } = await loadActions();
+    expect(await setDayType("2026-06-01", null)).toEqual({ ok: true });
+    expect((await getSchedule())["2026-06-01"]).toBe("0");
+  });
+
+  it("ignores a linked account's ticks when deciding", async () => {
+    setupScheduleData({ "2026-06-01": "0" });
+    writeFileSync(tempFile, JSON.stringify({ [`2026-06-01:${LINKED.id}`]: ["t-sing-0"] }));
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-01", "group-class");
+    expect((await getSchedule())["2026-06-01"]).toBe("group-class");
+  });
+
+  it("labels today even when practice is ticked", async () => {
+    setupScheduleData({ "2026-06-15": "0" });
+    writeFileSync(tempFile, JSON.stringify({ "2026-06-15": ["t-sing-0"] }));
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-15", "individual-class");
+    expect((await getSchedule())["2026-06-15"]).toBe("individual-class");
+  });
+
+  it("clearing a past label restores the plan that was active then", async () => {
+    setupScheduleData({ "2026-05-30": "0", "2026-06-01": "1", "2026-06-02": "sick" });
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-02", null);
+    expect((await getSchedule())["2026-06-02"]).toBe("1");
+  });
+
+  it("clearing a past label skips non-practice days when restoring", async () => {
+    setupScheduleData({ "2026-05-30": "0", "2026-06-01": "sick", "2026-06-02": "individual-class" });
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-02", null);
+    expect((await getSchedule())["2026-06-02"]).toBe("0");
+  });
+
+  it("clearing a past label with no earlier plan deletes the entry", async () => {
+    setupScheduleData({ "2026-06-02": "sick" });
+    const { setDayType, getSchedule } = await loadActions();
+    await setDayType("2026-06-02", null);
+    expect((await getSchedule())["2026-06-02"]).toBeUndefined();
   });
 
   it("rejects an unknown day-type id", async () => {

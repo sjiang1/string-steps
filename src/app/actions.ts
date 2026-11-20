@@ -5,7 +5,7 @@ import studentsSeed from "@data/students.json";
 import teacherSeed from "@data/teacher.json";
 import { cookies } from "next/headers";
 import type { Plan, PracticeItem, PlanSchedule, Track } from "./plans";
-import { practicePlanIdOn } from "./plans";
+import { mostRecentPastPracticePlanIdAsOf, practicePlanIdOn } from "./plans";
 import { rhythms } from "./rhythms";
 import { isNonPracticeDay } from "./day-types";
 import { todayLocal } from "./today";
@@ -114,20 +114,66 @@ export async function getSchedule(): Promise<PlanSchedule> {
   return schedule;
 }
 
-// Sets or clears a day-type label for a date in the schedule. Today + future
-// only (past days are read-only); a null dayTypeId clears the label by deleting
-// the entry, so the date defaults to a practice day when it arrives (via
-// ensureTodayInSchedule / resolveActivePlanId). Unauthenticated, matching the
-// other schedule/plan mutations.
-export async function setDayType(date: string, dayTypeId: string | null): Promise<void> {
-  if (date < todayLocal()) {
-    throw new Error(`Cannot label a past date (${date})`);
-  }
+export type SetDayTypeResult = { ok: true } | { ok: false; error: string };
+
+// Whether `date` holds a plan id and no later date holds any plan id.
+function isLatestPlanDay(date: string, schedule: PlanSchedule): boolean {
+  const value = schedule[date];
+  if (value === undefined || isNonPracticeDay(value)) return false;
+  return !Object.entries(schedule).some(([d, v]) => d > date && !isNonPracticeDay(v));
+}
+
+// Sets or clears a day-type label for a date in the schedule. Any date, with
+// one rule for the past (#30): a day the primary ticked practice on cannot be
+// given a label, since a label would hide those ticks from the calendar and
+// the Teacher report. Clearing is always allowed: it reveals ticks, never
+// hides them. Linked accounts' ticks don't count; they are not in use and fall
+// back to the previous plan on class days anyway. Clearing a label on today or
+// a future date deletes the entry, so the date defaults to a practice day when
+// it arrives (ensureTodayInSchedule / resolveActivePlanId); clearing a past
+// date writes back the plan that was active then, because nothing fills past
+// days in automatically. The refusal is returned, not thrown: Next.js redacts
+// thrown server-action messages in production, and the sheet shows this text.
+// Unauthenticated, matching the other schedule/plan mutations.
+export async function setDayType(
+  date: string,
+  dayTypeId: string | null,
+): Promise<SetDayTypeResult> {
   if (dayTypeId !== null && !isNonPracticeDay(dayTypeId)) {
     throw new Error(`Unknown day type "${dayTypeId}"`);
   }
-  if (dayTypeId === null) await deleteScheduleEntry(date);
-  else await setScheduleEntry(date, dayTypeId);
+  const past = date < todayLocal();
+  if (dayTypeId !== null) {
+    if (past) {
+      const ticks = await getDoneTasks(date, await getPrimaryStudent());
+      if (ticks.length > 0) {
+        return { ok: false, error: `Cannot relabel ${date}: practice was logged that day` };
+      }
+      // ensureTodayInSchedule copies the plan from the latest day that holds
+      // one. If this day is that day (today being a class day, so it was not
+      // auto-filled), labelling it would make tomorrow fall back to an older
+      // plan. getSchedule() rather than the raw map, so today counts when it
+      // can be filled in.
+      const schedule = await getSchedule();
+      if (isLatestPlanDay(date, schedule)) {
+        return {
+          ok: false,
+          error: `Cannot relabel ${date}: it is the latest practice day, so the plan it started would be lost. Try again after the next practice day.`,
+        };
+      }
+    }
+    await setScheduleEntry(date, dayTypeId);
+    return { ok: true };
+  }
+  if (past) {
+    const previous = mostRecentPastPracticePlanIdAsOf(date, await getScheduleMap());
+    if (previous !== null) {
+      await setScheduleEntry(date, previous);
+      return { ok: true };
+    }
+  }
+  await deleteScheduleEntry(date);
+  return { ok: true };
 }
 
 export async function getTracks(): Promise<Track[]> {
@@ -179,14 +225,17 @@ export async function toggleTask(date: string, taskKey: string): Promise<string[
   return toggleDone(doneLogId(student, date), taskKey);
 }
 
+// `ticked` says whether the primary ticked anything that day, whoever is
+// viewing: the calendar uses it to refuse a new label on a past day (#30).
 export type MonthProgressEntry =
-  | { type: "practice"; done: number; total: number }
-  | { type: "non-practice"; dayTypeId: string };
+  | { type: "practice"; done: number; total: number; ticked: boolean }
+  | { type: "non-practice"; dayTypeId: string; ticked: boolean };
 
 export async function getMonthProgress(
   yearMonth: string
 ): Promise<Record<string, MonthProgressEntry>> {
   const student = await getActiveStudent();
+  const primary = await getPrimaryStudent();
   const schedule = await getSchedule();
   const plans = await getPlans();
   const result: Record<string, MonthProgressEntry> = {};
@@ -224,9 +273,16 @@ export async function getMonthProgress(
     const plan = planId === null ? undefined : plans.find((p) => p.id === planId);
     if (plan) {
       const doneTasks = await getDoneTasks(date, student);
-      result[date] = { type: "practice", ...planProgress(plan, doneTasks) };
+      const primaryDone =
+        student.kind === "primary" ? doneTasks : await getDoneTasks(date, primary);
+      result[date] = {
+        type: "practice",
+        ...planProgress(plan, doneTasks),
+        ticked: primaryDone.length > 0,
+      };
     } else if (isNonPracticeDay(value)) {
-      result[date] = { type: "non-practice", dayTypeId: value };
+      const primaryDone = await getDoneTasks(date, primary);
+      result[date] = { type: "non-practice", dayTypeId: value, ticked: primaryDone.length > 0 };
     }
   }
 
